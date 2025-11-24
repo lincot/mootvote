@@ -16,7 +16,7 @@ const MAX_CHOICE_LEN: usize = 100;
 pub struct DescriptionCmd {
     pub poll_id: i64,
     pub url: String,
-    pub n_choices: u8,
+    pub expected_n_choices: u8,
 }
 
 #[derive(Debug, Error)]
@@ -58,7 +58,8 @@ impl DescriptionManager {
                 let client = self.reqwest_client.clone();
                 async move {
                     if let Err(err) =
-                        Self::ingest(&pool, &client, cmd.poll_id, cmd.url, cmd.n_choices).await
+                        Self::ingest(&pool, &client, cmd.poll_id, cmd.url, cmd.expected_n_choices)
+                            .await
                     {
                         error!("description ingest failed for poll {}: {err}", cmd.poll_id);
                     } else {
@@ -178,7 +179,7 @@ impl DescriptionManager {
     ) -> Result<(), sqlx::Error> {
         let rows = sqlx::query!(
             r#"
-            SELECT p.poll_id, p.description_url, p.n_choices
+            SELECT p.poll_id, p.description_url, p.expected_n_choices
             FROM polls p
             WHERE p.title IS NULL
             "#
@@ -190,7 +191,7 @@ impl DescriptionManager {
             tx.send(DescriptionCmd {
                 poll_id: r.poll_id,
                 url: r.description_url,
-                n_choices: r.n_choices as u8,
+                expected_n_choices: r.expected_n_choices as u8,
             })
             .unwrap();
         }

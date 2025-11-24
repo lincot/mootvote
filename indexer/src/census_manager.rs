@@ -10,7 +10,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 pub struct CensusCmd {
     pub poll_id: i64,
     pub url: String,
-    pub expected_voters: u64,
+    pub expected_n_voters: u64,
 }
 
 #[derive(Debug, Error)]
@@ -56,7 +56,7 @@ impl CensusManager {
                         &reqwest_client,
                         cmd.poll_id,
                         cmd.url,
-                        cmd.expected_voters,
+                        cmd.expected_n_voters,
                     )
                     .await
                     {
@@ -202,7 +202,7 @@ impl CensusManager {
     ) -> sqlx::Result<()> {
         let rows = sqlx::query!(
             r#"
-        SELECT poll_id, census_url, expected_voters
+        SELECT poll_id, census_url, expected_n_voters
         FROM polls
         WHERE census_valid IS NULL OR census_valid = FALSE
         "#
@@ -214,7 +214,7 @@ impl CensusManager {
             let cmd = CensusCmd {
                 poll_id: row.poll_id,
                 url: row.census_url,
-                expected_voters: row.expected_voters as u64,
+                expected_n_voters: row.expected_n_voters as u64,
             };
             census_sender.send(cmd).unwrap();
         }

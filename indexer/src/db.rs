@@ -117,8 +117,8 @@ impl DbManager {
         let res = sqlx::query!(
             r#"
         INSERT INTO polls (
-          poll_id, n_choices, census_root, coord_x, coord_y,
-          voting_start_time, voting_end_time, fee, platform_fee, expected_voters,
+          poll_id, expected_n_choices, census_root, coord_x, coord_y,
+          voting_start_time, voting_end_time, fee, platform_fee, expected_n_voters,
           fee_destination, description_url, census_url
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
@@ -144,13 +144,13 @@ impl DbManager {
         census_cmds.push(CensusCmd {
             poll_id: e.poll_id as i64,
             url: e.census_url,
-            expected_voters: e.n_voters,
+            expected_n_voters: e.n_voters,
         });
 
         description_cmds.push(DescriptionCmd {
             poll_id: e.poll_id as i64,
             url: e.description_url,
-            n_choices: e.n_choices,
+            expected_n_choices: e.n_choices,
         });
 
         Ok(res)

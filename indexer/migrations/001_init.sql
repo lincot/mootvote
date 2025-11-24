@@ -3,7 +3,7 @@ CREATE TABLE polls (
   poll_id                    BIGINT UNIQUE NOT NULL,
   title                      VARCHAR(100),
   choices                    VARCHAR(100)[],
-  n_choices                  SMALLINT NOT NULL,
+  expected_n_choices         SMALLINT NOT NULL,
   census_root                BYTEA NOT NULL,  -- 32
   coord_x                    BYTEA NOT NULL,  -- 32
   coord_y                    BYTEA NOT NULL,  -- 32
@@ -17,7 +17,7 @@ CREATE TABLE polls (
   tally                      BIGINT[],
   census_valid               BOOLEAN,
   census_invalid_reason      TEXT,
-  expected_voters            BIGINT NOT NULL,
+  expected_n_voters          BIGINT NOT NULL,
   description_invalid_reason TEXT
 
   CONSTRAINT choices_count CHECK (array_length(choices, 1) BETWEEN 1 AND 8)
