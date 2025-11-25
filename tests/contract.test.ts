@@ -39,6 +39,7 @@ import chaiAsPromised from "chai-as-promised";
 import { expect } from "chai";
 import {
   disperse,
+  HASH0,
   sendAndConfirmVersionedTx,
   setupTests,
   toBigint,
@@ -344,10 +345,7 @@ describe("Anon Vote", () => {
     const uniqDb = new InMemoryDB(new Uint8Array(2));
     const uniqMt = new Merkletree(uniqDb, true, STATE_DEPTH);
 
-    const { prv: prvRevoting, pub: pubRevoting } = genBabyJubKeypair(
-      babyjub,
-      eddsa,
-    );
+    const prvRevoting = randomScalar(babyjub.subOrder);
 
     for (let i = 0; i < BatchLen; i++) {
       const voterIndex = BatchLen > 2 && i >= BatchLen - 2
@@ -383,39 +381,18 @@ describe("Anon Vote", () => {
 
       // normal votes, then key change, then a valid vote with new key, then an invalid vote
       const RevotingKeyOld = i == BatchLen - 2 && BatchLen > 2
-        ? pubRevoting.map((x) => F.toObject(x))
-        : [0n, 0n];
+        ? prvRevoting
+        : 0n;
       const RevotingKeyNew = i == BatchLen - 3 && BatchLen > 2
-        ? pubRevoting.map((x) => F.toObject(x))
-        : [42n, 42n];
-
-      let RevotingSignaturePoint = [0n, 0n];
-      let RevotingSignatureScalar = 0n;
-      if (i == BatchLen - 2 && BatchLen > 2) {
-        const M_N = poseidon([
-          PLATFORM_NAME,
-          sigHash,
-          Choice,
-          RevotingKeyNew[0],
-          RevotingKeyNew[1],
-        ]);
-        const sigN = eddsa.signPoseidon(prvRevoting, M_N);
-
-        RevotingSignaturePoint = [
-          F.toObject(sigN.R8[0]),
-          F.toObject(sigN.R8[1]),
-        ];
-        RevotingSignatureScalar = sigN.S;
-      }
+        ? prvRevoting
+        : 42n;
 
       const nuCoordinator = F.toObject(poseidon([sigHash]));
       const P = [
         nuCoordinator,
         Choice,
-        RevotingKeyOld[0],
-        RevotingKeyOld[1],
-        RevotingKeyNew[0],
-        RevotingKeyNew[1],
+        F.toObject(poseidon([RevotingKeyOld])),
+        F.toObject(poseidon([RevotingKeyNew])),
       ];
       const CT = poseidonEncrypt(P, S, Nonce);
 
@@ -449,8 +426,6 @@ describe("Anon Vote", () => {
         N_choices,
         RevotingKeyNew,
         RevotingKeyOld,
-        RevotingSignaturePoint,
-        RevotingSignatureScalar,
 
         Key: [F.toObject(pub[0]), F.toObject(pub[1])],
         SignaturePoint,
@@ -661,7 +636,7 @@ describe("Anon Vote", () => {
   });
 
   const MAX_BATCH = 6;
-  const LIMBS = 6;
+  const LIMBS = 4;
   const MAX_CHOICES = 8;
 
   it("tally", async () => {
@@ -691,16 +666,14 @@ describe("Anon Vote", () => {
     const NoAux: bigint[] = [];
     const AuxKey: bigint[] = [];
     const AuxValue: bigint[] = [];
-    const RevotingKeyOldActual: bigint[][] = [];
+    const RevotingKeyOldActual: bigint[] = [];
 
     for (const message of messages) {
       const [
         nu,
         choice,
-        revotingKeyOldFromMsg0,
-        revotingKeyOldFromMsg1,
-        revotingKeyNew0,
-        revotingKeyNew1,
+        revotingKeyOldFromMsg,
+        revotingKeyNew,
       ] = poseidonDecrypt(
         message.ciphertext,
         mulPointEscalar(message.ephKey, SK),
@@ -710,20 +683,12 @@ describe("Anon Vote", () => {
 
       const idx = nu & ((1n << BigInt(STATE_DEPTH)) - 1n);
 
-      const revotingKeyNew = [revotingKeyNew0, revotingKeyNew1];
-
-      const prevLeaf = mtMap.get(idx) ?? {
-        choice: 0n,
-        revotingKey: [0n, 0n],
-      };
-      const voteIsValid = prevLeaf.revotingKey[0] == revotingKeyOldFromMsg0 &&
-        prevLeaf.revotingKey[1] == revotingKeyOldFromMsg1;
+      const prevLeaf = mtMap.get(idx) ?? { choice: 0n, revotingKey: HASH0 };
+      const voteIsValid = prevLeaf.revotingKey == revotingKeyOldFromMsg;
       if (voteIsValid) {
         mtMap.set(idx, { choice, revotingKey: revotingKeyNew });
       }
-      const leaf = F.toObject(
-        poseidon([choice, revotingKeyNew[0], revotingKeyNew[1]]),
-      );
+      const leaf = F.toObject(poseidon([choice, revotingKeyNew]));
       let proof: CircomProcessorProof | CircomVerifierProof;
       if (voteIsValid) {
         try {

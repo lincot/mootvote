@@ -7,7 +7,7 @@ import { type BabyJub, type Eddsa } from "circomlibjs";
 const crypto: Crypto = globalThis.crypto ?? (nodeCrypto as unknown as Crypto);
 
 export function randomScalar(mod: bigint): bigint {
-  const bytes = new Uint8Array(64);
+  const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   let x = 0n;
   for (const b of bytes) x = (x << 8n) | BigInt(b);

@@ -49,7 +49,7 @@ import {
 import { groth16 } from "snarkjs";
 import { poseidonDecrypt, poseidonEncrypt } from "@zk-kit/poseidon-cipher";
 import { compressProof } from "../../helpers/compressSolana.ts";
-import { genBabyJubKeypair, prv2sk } from "../../helpers/key.ts";
+import { genBabyJubKeypair, prv2sk, randomScalar } from "../../helpers/key.ts";
 import {
   createPoll,
   createTally,
@@ -70,7 +70,12 @@ import { fetchRelayerConfig } from "@lincot/zk-relayer-sdk";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import type BaseWebIrys from "@irys/web-upload/esm/base";
 import { getMerkleProof, getMerkleRoot } from "../../helpers/merkletree.ts";
-import { hexToBytes32, replacer, reviver } from "../../helpers/utils.ts";
+import {
+  HASH0,
+  hexToBytes32,
+  jsonReplacer,
+  jsonReviver,
+} from "../../helpers/utils.ts";
 import { mulPointEscalar } from "@zk-kit/baby-jubjub";
 import {
   ErrEntryIndexAlreadyExists,
@@ -169,9 +174,7 @@ type EncryptedKeyringBlob = {
 };
 
 type RevoKey = {
-  prv: Uint8Array;
   sk: bigint;
-  pub: [bigint, bigint];
   updatedAt: number;
   title: string;
 };
@@ -207,7 +210,7 @@ async function encryptToBlob<T>(
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await pbkdf2(pass, salt);
-  const pt = new TextEncoder().encode(JSON.stringify(obj, replacer));
+  const pt = new TextEncoder().encode(JSON.stringify(obj, jsonReplacer));
   const ct = new Uint8Array(
     await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, pt),
   );
@@ -230,7 +233,7 @@ async function decryptFromBlob<T>(
   const pt = new Uint8Array(
     await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct),
   );
-  return JSON.parse(new TextDecoder().decode(pt), reviver);
+  return JSON.parse(new TextDecoder().decode(pt), jsonReviver);
 }
 
 const toBytes32 = (n: bigint) => {
@@ -339,8 +342,9 @@ export const RevoKeysProvider: React.FC<React.PropsWithChildren> = (
   }, [map]);
 
   const generateForPoll = useCallback(async () => {
-    const { prv, sk, pub } = await genBabyJubKeypair_("");
-    return { prv, sk, pub, updatedAt: Date.now() } as RevoKey;
+    const babyjub = await getBabyjub();
+    const sk = randomScalar(babyjub.subOrder);
+    return { sk, updatedAt: Date.now() } as RevoKey;
   }, []);
 
   const setForPoll = useCallback(
@@ -364,7 +368,7 @@ export const RevoKeysProvider: React.FC<React.PropsWithChildren> = (
   );
 
   const exportJson = useCallback(() => {
-    const blob = new Blob([JSON.stringify(map, replacer, 2)], {
+    const blob = new Blob([JSON.stringify(map, jsonReplacer, 2)], {
       type: "application/json",
     });
     const a = document.createElement("a");
@@ -375,7 +379,7 @@ export const RevoKeysProvider: React.FC<React.PropsWithChildren> = (
 
   const exportRevo = useCallback((accountId: string, filename?: string) => {
     const payload = map[accountId] || {};
-    const blob = new Blob([JSON.stringify(payload, replacer, 2)], {
+    const blob = new Blob([JSON.stringify(payload, jsonReplacer, 2)], {
       type: "application/json",
     });
     const a = document.createElement("a");
@@ -411,7 +415,7 @@ export function useRevoKeysCtx() {
 
 type LeafData = {
   choice: bigint;
-  revotingKey: [bigint, bigint];
+  revotingKey: bigint;
   hash: bigint;
 };
 
@@ -600,7 +604,7 @@ function useKeyring() {
   }, [accounts, active, persist, setActive]);
 
   const exportJson = useCallback(() => {
-    const blob = new Blob([JSON.stringify(accounts, replacer, 2)], {
+    const blob = new Blob([JSON.stringify(accounts, jsonReplacer, 2)], {
       type: "application/json",
     });
     const a = document.createElement("a");
@@ -865,8 +869,7 @@ const PollCreator: React.FC<{}> = () => {
     resolver: zodResolver(schema),
     defaultValues: {
       pollId: String(
-        (crypto.getRandomValues(new Uint32Array(1))[0] % 100_000_000_000_000) ||
-          1,
+        crypto.getRandomValues(new Uint32Array(1))[0] % 100_000_000_000_000,
       ),
       title: "",
       choices: [{ value: "" }, { value: "" }],
@@ -1040,7 +1043,7 @@ const PollCreator: React.FC<{}> = () => {
                   {...register("coordMode")}
                   defaultChecked
                 />
-                Use ZK account
+                Use keyring
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="radio" value="manual" {...register("coordMode")} />
@@ -1507,18 +1510,12 @@ const KeyringPanel: React.FC<{ open: boolean }> = ({ open }) => {
                             #{pollId}
                           </div>
                         </div>
-                        <div className="text-xs font-mono break-all mt-2">
-                          pkX: 0x{k.pub[0].toString(16)}
-                        </div>
-                        <div className="text-xs font-mono break-all">
-                          pkY: 0x{k.pub[1].toString(16)}
-                        </div>
                         <details className="mt-1">
                           <summary className="text-xs text-gray-600 cursor-pointer select-none">
-                            show private key
+                            show secret
                           </summary>
                           <div className="text-xs font-mono break-all">
-                            prv: 0x{bytesToHex(k.prv)}
+                            secret: 0x{k.sk.toString(16)}
                           </div>
                         </details>
                         <div className="mt-2 flex gap-2">
@@ -2097,9 +2094,9 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
 
       const pollIdBig = BigInt(poll.poll_id);
       const existing = RK.getForPoll(accountId, pollIdBig);
-      const oldSec: [bigint, bigint] = existing ? existing.pub : [0n, 0n];
+      const oldSec: bigint = existing ? existing.sk : 0n;
       const newRec = await RK.generateForPoll();
-      const newSec: [bigint, bigint] = newRec.pub;
+      const newSec: bigint = newRec.sk;
 
       const PK: [bigint, bigint] = [
         BigInt("0x" + poll.coordinator_key[0]),
@@ -2156,11 +2153,7 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         ]),
       );
 
-      const rnd = new Uint8Array(64);
-      crypto.getRandomValues(rnd);
-      let r = 0n;
-      for (let i = 0; i < rnd.length; i++) r = (r << 8n) | BigInt(rnd[i]);
-      r = (r % babyjub.subOrder) || 1n;
+      let r = randomScalar(babyjub.subOrder);
       const Rraw = babyjub.mulPointEscalar(babyjub.Base8, r);
       const Sraw = babyjub.mulPointEscalar([F.e(PK[0]), F.e(PK[1])], r);
       const S: [bigint, bigint] = [
@@ -2172,33 +2165,13 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
 
       const RevotingKeyOld = oldSec;
       const RevotingKeyNew = newSec;
-      let RevotingSignaturePoint: [bigint, bigint] = [0n, 0n];
-      let RevotingSignatureScalar = 0n;
-      if (oldSec[0] !== 0n || oldSec[1] !== 0n) {
-        const prvRevoting = existing!.prv;
-        const M2 = poseidon([
-          PLATFORM_NAME,
-          sigHash,
-          Choice,
-          RevotingKeyNew[0],
-          RevotingKeyNew[1],
-        ]);
-        const sig2 = eddsa.signPoseidon(prvRevoting, M2);
-        RevotingSignaturePoint = [
-          F.toObject(sig2.R8[0]),
-          F.toObject(sig2.R8[1]),
-        ];
-        RevotingSignatureScalar = sig2.S;
-      }
 
       const nuCoordinator = F.toObject(poseidon([sigHash]));
       const P = [
         nuCoordinator,
         Choice,
-        RevotingKeyOld[0],
-        RevotingKeyOld[1],
-        RevotingKeyNew[0],
-        RevotingKeyNew[1],
+        F.toObject(poseidon([RevotingKeyOld])),
+        F.toObject(poseidon([RevotingKeyNew])),
       ];
       const Nonce = (() => {
         const u = new Uint32Array(2);
@@ -2230,8 +2203,6 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         N_choices,
         RevotingKeyNew,
         RevotingKeyOld,
-        RevotingSignaturePoint,
-        RevotingSignatureScalar,
         Key: pub,
         SignaturePoint,
         SignatureScalar,
@@ -2760,13 +2731,13 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
       const CT: bigint[][] = [];
       const Siblings: bigint[][] = [];
       const PrevChoice: bigint[] = [];
-      const RevotingKeyOldActual: bigint[][] = [];
+      const RevotingKeyOldActual: bigint[] = [];
       const NoAux: bigint[] = [];
       const AuxKey: bigint[] = [];
       const AuxValue: bigint[] = [];
       const IsPrevEmpty: bigint[] = [];
 
-      const LIMBS = 6;
+      const LIMBS = 4;
 
       for (const v of batch) {
         const R: [bigint, bigint] = [
@@ -2789,29 +2760,24 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         const [
           nu,
           choice,
-          revotingKeyOldFromMsg0,
-          revotingKeyOldFromMsg1,
-          revotingKeyNew0,
-          revotingKeyNew1,
+          revotingKeyOldFromMsg,
+          revotingKeyNew,
         ] = plain;
 
         const idx = nu & ((1n << BigInt(STATE_DEPTH)) - 1n);
         const prevLeaf = leavesMap[idx.toString()];
         let prevChoice = 0n;
-        let prevSec: [bigint, bigint] = [0n, 0n];
+        let prevSec = HASH0;
         if (prevLeaf) {
           prevChoice = prevLeaf.choice;
           prevSec = prevLeaf.revotingKey;
         }
 
-        const voteIsValid = prevSec[0] == revotingKeyOldFromMsg0 &&
-          prevSec[1] == revotingKeyOldFromMsg1;
+        const voteIsValid = prevSec == revotingKeyOldFromMsg;
 
         let proof: any;
         if (voteIsValid) {
-          const leaf = F.toObject(
-            poseidon([choice, revotingKeyNew0, revotingKeyNew1]),
-          );
+          const leaf = F.toObject(poseidon([choice, revotingKeyNew]));
           try {
             proof = await mt.addAndGetCircomProof(idx, leaf);
             IsPrevEmpty.push(1n);
@@ -2822,7 +2788,7 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
           }
           leavesMap[idx.toString()] = {
             choice,
-            revotingKey: [revotingKeyNew0, revotingKeyNew1],
+            revotingKey: revotingKeyNew,
             hash: leaf,
           };
           if (prevChoice !== 0n) tallyCounts[Number(prevChoice) - 1] -= 1n;

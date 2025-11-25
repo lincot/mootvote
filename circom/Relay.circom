@@ -49,15 +49,15 @@ template Relay(DEPTH) {
     signal isPrevEmpty <== IsZero()(PrevCount);
 
     SMTVerifier(DEPTH)(
-        enabled <== 1,
-        root <== RootQuota_before,
+        enabled  <== 1,
+        root     <== RootQuota_before,
         siblings <== SiblingsQuota,
-        oldKey <== AuxKeyQuota, // not required for inclusion
+        oldKey   <== AuxKeyQuota, // not required for inclusion
         oldValue <== AuxValueQuota, // not required for inclusion
-        isOld0 <== NoAuxQuota, // not required for inclusion
-        key <== nuLo,
-        value <== PrevCount, // not required for non-inclusion
-        fnc <== isPrevEmpty
+        isOld0   <== NoAuxQuota, // not required for inclusion
+        key      <== nuLo,
+        value    <== PrevCount, // not required for non-inclusion
+        fnc      <== isPrevEmpty
     );
 
     signal rootQuota_after <== SMTProcessor(DEPTH)(
@@ -73,15 +73,15 @@ template Relay(DEPTH) {
     );
 
     SMTVerifier(DEPTH)(
-        enabled <== 1,
-        root <== RootUniq_before,
+        enabled  <== 1,
+        root     <== RootUniq_before,
         siblings <== SiblingsUniq,
-        oldKey <== AuxKeyUniq,
+        oldKey   <== AuxKeyUniq,
         oldValue <== AuxValueUniq,
-        isOld0 <== NoAuxUniq,
-        key <== MsgHash,
-        value <== 0,
-        fnc <== 1
+        isOld0   <== NoAuxUniq,
+        key      <== MsgHash,
+        value    <== 0,
+        fnc      <== 1
     );
 
     signal rootUniq_after <== SMTProcessor(DEPTH)(

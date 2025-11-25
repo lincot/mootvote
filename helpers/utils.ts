@@ -117,6 +117,10 @@ export const toBigint = (value: BN | bigint): bigint =>
 const FP =
   21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 
+// F.toObject(poseidon([0n]))
+export const HASH0 =
+  19014214495641488759237505126948346942972912379615652741039992445865937985820n;
+
 export function toBytesBE32Buf(n0: bigint): Buffer {
   let n = ((n0 % FP) + FP) % FP;
   const out = Buffer.alloc(32);
@@ -172,7 +176,7 @@ const constructors: Record<string, any> = {
   BigUint64Array,
 };
 
-export function replacer(_k: string, v: any) {
+export function jsonReplacer(_k: string, v: any) {
   if (typeof v === "bigint") return { [BIGINT_TAG]: v.toString() };
 
   if (ArrayBuffer.isView(v) && !(v instanceof DataView)) {
@@ -182,7 +186,7 @@ export function replacer(_k: string, v: any) {
   return v;
 }
 
-export function reviver(_k: string, v: any) {
+export function jsonReviver(_k: string, v: any) {
   if (v && typeof v === "object") {
     if (BIGINT_TAG in v) return BigInt(v[BIGINT_TAG]);
     if (TA_TAG in v && typeof v.data === "string") {
