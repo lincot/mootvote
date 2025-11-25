@@ -85,7 +85,7 @@ template Vote(DEPTH) {
     signal Rx <== Rmul.out[0];
     signal Ry <== Rmul.out[1];
 
-    signal coordinatorSharedKey[2] <== EscalarMulAny(253)(rBits.out, CoordinatorPK);
+    signal sharedKey[2] <== EscalarMulAny(253)(rBits.out, CoordinatorPK);
 
     signal P[LIMBS];
     P[0] <== coordinatorNu;
@@ -93,12 +93,12 @@ template Vote(DEPTH) {
     P[2] <== PoseidonHasher(1)([RevotingKeyOld]);
     P[3] <== PoseidonHasher(1)([RevotingKeyNew]);
 
-    component cDec = PoseidonDecrypt(LIMBS);
-    cDec.key <== coordinatorSharedKey;
-    cDec.nonce <== Nonce;
-    cDec.ciphertext <== CT;
+    component dec = PoseidonDecrypt(LIMBS);
+    dec.key <== sharedKey;
+    dec.nonce <== Nonce;
+    dec.ciphertext <== CT;
     for (var i = 0; i < LIMBS; i++) {
-        cDec.decrypted[i] === P[i];
+        dec.decrypted[i] === P[i];
     }
 
     component msgHasher = PoseidonHasher(3 + CT_LEN);
