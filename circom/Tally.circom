@@ -42,10 +42,9 @@ template Tally(DEPTH, MAX_CHOICES, MAX_BATCH) {
     signal input AuxValue[MAX_BATCH];
     signal input IsPrevEmpty[MAX_BATCH];
 
-    signal leafPrevFromMsg[MAX_BATCH];
-    signal leafPrevActual[MAX_BATCH];
+    signal leafPrev[MAX_BATCH];
     signal leafNew[MAX_BATCH];
-    signal leafEqual[MAX_BATCH];
+    signal revotingKeysEqual[MAX_BATCH];
 
     signal {binary} enabled[MAX_BATCH];
 
@@ -53,8 +52,8 @@ template Tally(DEPTH, MAX_CHOICES, MAX_BATCH) {
 
     signal nu[MAX_BATCH];
     signal choice[MAX_BATCH];
-    signal RevotingKeyOldFromMsg[MAX_BATCH];
-    signal RevotingKeyNew[MAX_BATCH];
+    signal revotingKeyOldFromMsg[MAX_BATCH];
+    signal revotingKeyNew[MAX_BATCH];
 
     signal idxBits[MAX_BATCH][DEPTH];
     signal nuLo[MAX_BATCH];
@@ -106,16 +105,15 @@ template Tally(DEPTH, MAX_CHOICES, MAX_BATCH) {
         dec[i].ciphertext <== CT[i];
         nu[i] <== dec[i].decrypted[0];
         choice[i] <== dec[i].decrypted[1];
-        RevotingKeyOldFromMsg[i] <== dec[i].decrypted[2];
-        RevotingKeyNew[i] <== dec[i].decrypted[3];
+        revotingKeyOldFromMsg[i] <== dec[i].decrypted[2];
+        revotingKeyNew[i] <== dec[i].decrypted[3];
 
-        leafPrevFromMsg[i] <== PoseidonHasher(2)([PrevChoice[i], RevotingKeyOldFromMsg[i]]);
-        leafPrevActual[i] <== PoseidonHasher(2)([PrevChoice[i], RevotingKeyOldActual[i]]);
-        leafNew[i] <== PoseidonHasher(2)([choice[i], RevotingKeyNew[i]]);
+        leafPrev[i] <== PoseidonHasher(2)([PrevChoice[i], RevotingKeyOldActual[i]]);
+        leafNew[i] <== PoseidonHasher(2)([choice[i], revotingKeyNew[i]]);
 
         indexLessThan[i] <== LessThan(16)([i, BatchLen]);
-        leafEqual[i] <== IsEqual()([leafPrevFromMsg[i], leafPrevActual[i]]);
-        enabled[i] <== indexLessThan[i] * leafEqual[i];
+        revotingKeysEqual[i] <== IsEqual()([revotingKeyOldFromMsg[i], RevotingKeyOldActual[i]]);
+        enabled[i] <== indexLessThan[i] * revotingKeysEqual[i];
 
         nuLo[i] <-- nu[i] & ((1 << DEPTH) - 1);
         nuHi[i] <-- nu[i] >> DEPTH;
@@ -133,7 +131,7 @@ template Tally(DEPTH, MAX_CHOICES, MAX_BATCH) {
             oldValue <== AuxValue[i], // not required for inclusion
             isOld0   <== NoAux[i], // not required for inclusion
             key      <== nuLo[i],
-            value    <== leafPrevActual[i], // not required for non-inclusion
+            value    <== leafPrev[i], // not required for non-inclusion
             fnc      <== IsPrevEmpty[i]
         );
 
