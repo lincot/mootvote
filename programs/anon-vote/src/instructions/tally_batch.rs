@@ -21,12 +21,12 @@ pub fn tally_batch(
         .decompress()
         .map_err(|_| AnonVoteError::ProofDecompressionError)?;
     let public_inputs = [
+        tally.tally_hash,
         root_after,
         running_msg_hash_after,
         tally_hash_after,
         tally.root,
         tally.running_msg_hash,
-        tally.tally_hash,
     ];
     let mut v = Groth16Verifier::<6>::new(&proof.a, &proof.b, &proof.c, &public_inputs, &VK_TALLY)
         .map_err(|_| AnonVoteError::InvalidProof)?;

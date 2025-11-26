@@ -653,9 +653,6 @@ describe("Anon Vote", () => {
 
     const TallySalt_before = 42n;
     const TallySalt_after = 43n;
-    const TallyHash_before = F.toObject(
-      poseidon([TallySalt_before, ...Tally_before]),
-    );
 
     const EphKey: bigint[][] = [];
     const Nonce: bigint[] = [];
@@ -755,7 +752,6 @@ describe("Anon Vote", () => {
     const inputs = {
       Root_before,
       H_before: 0n,
-      TallyHash_before,
       TallySalt_before,
       TallySalt_after,
       Tally_before,
@@ -779,12 +775,15 @@ describe("Anon Vote", () => {
       "build/Tally/groth16_pkey.zkey",
     );
 
-    const Root_after = BigInt(publicSignals[0]);
-    const H_after = BigInt(publicSignals[1]);
-    const TallyHash_after = BigInt(publicSignals[2]);
-    expect(BigInt(publicSignals[3])).to.equal(Root_before);
-    expect(BigInt(publicSignals[4])).to.equal(H_before);
-    expect(BigInt(publicSignals[5])).to.equal(TallyHash_before);
+    const tallyHash_before = F.toObject(
+      poseidon([TallySalt_before, ...Tally_before]),
+    );
+    expect(BigInt(publicSignals[0])).to.equal(tallyHash_before);
+    const Root_after = BigInt(publicSignals[1]);
+    const H_after = BigInt(publicSignals[2]);
+    const TallyHash_after = BigInt(publicSignals[3]);
+    expect(BigInt(publicSignals[4])).to.equal(Root_before);
+    expect(BigInt(publicSignals[5])).to.equal(H_before);
 
     expect(Root_after).to.equal((await mt.root()).bigInt());
     expect(H_after).to.equal(H);
@@ -800,7 +799,7 @@ describe("Anon Vote", () => {
 
     await sendIx(
       await createTally({
-        initialTallyHash: toBytesBE32(TallyHash_before),
+        initialTallyHash: toBytesBE32(tallyHash_before),
         payer: payer.publicKey,
         pollId,
       }),
@@ -810,7 +809,7 @@ describe("Anon Vote", () => {
       connection,
       findTally(pollId, payer.publicKey),
     );
-    expect(tallyAcc?.tallyHash).to.deep.equal(toBytesBE32(TallyHash_before));
+    expect(tallyAcc?.tallyHash).to.deep.equal(toBytesBE32(tallyHash_before));
     expect(tallyAcc?.runningMsgHash).to.deep.equal(
       Array.from({ length: 32 }, () => 0),
     );
@@ -828,7 +827,7 @@ describe("Anon Vote", () => {
 
     await sendIx(
       await createTally({
-        initialTallyHash: toBytesBE32(TallyHash_before),
+        initialTallyHash: toBytesBE32(tallyHash_before),
         payer: payer.publicKey,
         pollId,
       }),

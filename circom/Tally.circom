@@ -17,7 +17,7 @@ template Tally(DEPTH, MAX_CHOICES, MAX_BATCH) {
     // ---- Public ----
     signal input Root_before;
     signal input H_before;
-    signal input TallyHash_before;
+    signal output TallyHash_before;
     signal output Root_after;
     signal output H_after;
     signal output TallyHash_after;
@@ -78,7 +78,7 @@ template Tally(DEPTH, MAX_CHOICES, MAX_BATCH) {
     for (var i = 0; i < MAX_CHOICES; i++) {
         tallyHash_before.inputs[1 + i] <== Tally_before[i];
     }
-    tallyHash_before.out === TallyHash_before;
+    TallyHash_before <== tallyHash_before.out;
 
     hashAcc[0]  <== H_before;
     tallyAcc[0] <== Tally_before;

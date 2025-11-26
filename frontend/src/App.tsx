@@ -426,7 +426,6 @@ type TallyStore = {
   processedCount: number;
   rootHex: string;
   runningMsgHashHex: string;
-  tallyHashHex: string;
   tallySaltHex: string;
   tallyCounts: string[]; // decimal strings
   leaves: Record<string, LeafData>;
@@ -2662,7 +2661,6 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         processedCount: 0,
         rootHex: "0x" + "00".repeat(32),
         runningMsgHashHex: "0x" + "00".repeat(32),
-        tallyHashHex: toHex32(tallyBeforeHash),
         tallySaltHex: toHex32(salt),
         tallyCounts: tally_before.map((x) => x.toString(10)),
         leaves: {},
@@ -2844,7 +2842,6 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         Tally_after[i] = tallyCounts[i] ?? 0n;
       }
 
-      const TallyHash_before = BigInt(store.tallyHashHex);
       const H_before = BigInt(store.runningMsgHashHex);
 
       const tallyAfterHash = F.toObject(poseidon([saltAfter, ...Tally_after]));
@@ -2852,7 +2849,6 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
       const inputs = {
         Root_before,
         H_before,
-        TallyHash_before,
         TallySalt_before: saltBefore,
         TallySalt_after: saltAfter,
         Tally_before,
@@ -2875,9 +2871,9 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         TALLY_WASM_URL,
         TALLY_ZKEY_URL,
       );
-      const Root_after_pub = BigInt(publicSignals[0]);
-      const H_after_pub = BigInt(publicSignals[1]);
-      const TallyHash_after_pub = BigInt(publicSignals[2]);
+      const Root_after_pub = BigInt(publicSignals[1]);
+      const H_after_pub = BigInt(publicSignals[2]);
+      const TallyHash_after_pub = BigInt(publicSignals[3]);
       if (Root_after_pub !== Root_after) throw new Error("Root_after mismatch");
       if (TallyHash_after_pub !== tallyAfterHash) {
         throw new Error("TallyHash_after mismatch");
@@ -2912,7 +2908,6 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         processedCount: store.processedCount + batch.length,
         rootHex: toHex32(Root_after),
         runningMsgHashHex: toHex32(H_after_pub),
-        tallyHashHex: toHex32(TallyHash_after_pub),
         tallySaltHex: toHex32(saltAfter),
         tallyCounts: tallyCounts.map((x) => x.toString(10)),
         leaves: leavesMap,

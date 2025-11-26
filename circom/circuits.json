@@ -9,7 +9,7 @@
     "file": "Tally",
     "template": "Tally",
     "params": [64, 8, 6],
-    "pubs": ["Root_before", "H_before", "TallyHash_before"]
+    "pubs": ["Root_before", "H_before"]
   },
   "Relay": {
     "file": "Relay",
