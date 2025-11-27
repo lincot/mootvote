@@ -10,108 +10,103 @@ include "bitify.circom";
 include "comparators.circom";
 
 template Vote(DEPTH) {
-    var LIMBS = 4; // nullifier, choice, RevotingKeyOld, RevotingKeyNew
+    var LIMBS = 4; // nullifier, choice, revotingKeyOld, revotingKeyNew
     var PAD = (LIMBS % 3 == 0) ? LIMBS : LIMBS + (3 - (LIMBS % 3));
     var CT_LEN = PAD + 1;
 
     // ---- Public ----
-    signal input CensusRoot;
-    signal input PollId;
-    signal input N_choices;
-    signal input CoordinatorPK[2];
-    signal input RelayerId;
-    signal output MsgHash;
-    signal output RelayerNuHash;
+    signal input censusRoot;
+    signal input pollId;
+    signal input nChoices;
+    signal input coordinatorPk[2];
+    signal input relayerId;
+    signal output msgHash;
+    signal output relayerNuHash;
 
     // ---- Private ----
-    signal input Key[2];
-    signal input Path[DEPTH];
-    signal input PathPos[DEPTH];
-    signal input Choice;
-    signal input RevotingKeyNew;
-    signal input RevotingKeyOld;
+    signal input voterPk[2];
+    signal input path[DEPTH];
+    signal input pathPos[DEPTH];
+    signal input choice;
+    signal input revotingKeyNew;
+    signal input revotingKeyOld;
 
-    signal input SignaturePoint[2];
-    signal input SignatureScalar;
+    signal input sigR[2];
+    signal input sigS;
 
-    signal input ephR;
-    signal input Nonce;
-    signal input CT[CT_LEN];
+    signal input ephSk;
+    signal input nonce;
+    signal input ciphertext[CT_LEN];
 
     signal root <== MerkleTreeInclusionProof(DEPTH)(
-        leaf <== PoseidonHasher(2)(Key),
-        path_indices <== PathPos,
-        path_elements <== Path
+        leaf <== PoseidonHasher(2)(voterPk),
+        path_indices <== pathPos,
+        path_elements <== path
     );
-    root === CensusRoot;
+    root === censusRoot;
 
     // name = "AnonVote"; sum([ord(ch) << (8 * (len(name) - 1 - i)) for i, ch in enumerate(name)])
     var PLATFORM_NAME = 4714828379590718565;
     signal sigValid <== EdDSAPoseidonVerifier()(
-        publicKeyX <== Key[0],
-        publicKeyY <== Key[1],
-        signatureScalar <== SignatureScalar,
-        signaturePointX <== SignaturePoint[0],
-        signaturePointY <== SignaturePoint[1],
-        messageHash <== PoseidonHasher(2)([PLATFORM_NAME, PollId])
+        publicKeyX <== voterPk[0],
+        publicKeyY <== voterPk[1],
+        signatureScalar <== sigS,
+        signaturePointX <== sigR[0],
+        signaturePointY <== sigR[1],
+        messageHash <== PoseidonHasher(2)([PLATFORM_NAME, pollId])
     );
     sigValid === 1;
 
     signal sigHash <== PoseidonHasher(3)([
-        SignatureScalar,
-        SignaturePoint[0],
-        SignaturePoint[1]
+        sigS,
+        sigR[0],
+        sigR[1]
     ]);
 
-    signal isRevotingNewZero <== IsZero()(RevotingKeyNew);
-    isRevotingNewZero === 0;
-    signal isRevotingNewEqualToOld <== IsEqual()([RevotingKeyNew, RevotingKeyOld]);
-    isRevotingNewEqualToOld === 0;
+    signal isRevotingKeyNewZero <== IsZero()(revotingKeyNew);
+    isRevotingKeyNewZero === 0;
+    signal isRevotingKeyNewEqualOld <== IsEqual()([revotingKeyNew, revotingKeyOld]);
+    isRevotingKeyNewEqualOld === 0;
 
-    signal coordinatorNu <== PoseidonHasher(1)([sigHash]);
+    signal nu <== PoseidonHasher(1)([sigHash]);
 
-    assert(N_choices <= 65535);
-    signal inRange <== LessEqThan(16)([Choice, N_choices]);
+    var CHOICE_BITS = 16;
+    assert(nChoices < 1 << CHOICE_BITS);
+    signal inRange <== LessEqThan(CHOICE_BITS)([choice, nChoices]);
     inRange === 1;
 
     var BASE_X = 5299619240641551281634865583518297030282874472190772894086521144482721001553;
     var BASE_Y = 16950150798460657717958625567821834550301663161624707787222815936182638968203;
 
-    component rBits = Num2Bits(253);
-    rBits.in <== ephR;
+    signal ephSkBits[253] <== Num2Bits(253)(ephSk);
+    signal ephPk[2] <== EscalarMulFix(253, [BASE_X, BASE_Y])(ephSkBits);
+    signal sharedKey[2] <== EscalarMulAny(253)(ephSkBits, coordinatorPk);
 
-    component Rmul = EscalarMulFix(253, [BASE_X, BASE_Y]);
-    Rmul.e <== rBits.out;
-    signal Rx <== Rmul.out[0];
-    signal Ry <== Rmul.out[1];
-
-    signal sharedKey[2] <== EscalarMulAny(253)(rBits.out, CoordinatorPK);
-
-    signal P[LIMBS];
-    P[0] <== coordinatorNu;
-    P[1] <== Choice;
-    P[2] <== PoseidonHasher(1)([RevotingKeyOld]);
-    P[3] <== PoseidonHasher(1)([RevotingKeyNew]);
+    signal plaintext[LIMBS];
+    plaintext[0] <== nu;
+    plaintext[1] <== choice;
+    plaintext[2] <== PoseidonHasher(1)([revotingKeyOld]);
+    plaintext[3] <== PoseidonHasher(1)([revotingKeyNew]);
 
     component dec = PoseidonDecrypt(LIMBS);
     dec.key <== sharedKey;
-    dec.nonce <== Nonce;
-    dec.ciphertext <== CT;
+    dec.nonce <== nonce;
+    dec.ciphertext <== ciphertext;
     for (var i = 0; i < LIMBS; i++) {
-        dec.decrypted[i] === P[i];
+        dec.decrypted[i] === plaintext[i];
     }
 
     component msgHasher = PoseidonHasher(3 + CT_LEN);
-    msgHasher.inputs[0] <== Rx;
-    msgHasher.inputs[1] <== Ry;
-    msgHasher.inputs[2] <== Nonce;
+    msgHasher.inputs[0] <== ephPk[0];
+    msgHasher.inputs[1] <== ephPk[1];
+    msgHasher.inputs[2] <== nonce;
     for (var i = 0; i < CT_LEN; i++) {
-        msgHasher.inputs[3 + i] <== CT[i];
+        msgHasher.inputs[3 + i] <== ciphertext[i];
     }
-    MsgHash <== msgHasher.out;
+    msgHash <== msgHasher.out;
 
-    signal relayerNu <== PoseidonHasher(2)([sigHash, RelayerId]);
-    signal relayerNuHash <== PoseidonHasher(2)([relayerNu, MsgHash]);
-    signal relayerIsNotProvided <== IsZero()(RelayerId);
-    RelayerNuHash <== relayerNuHash * (1 - relayerIsNotProvided);
+    signal relayerNu <== PoseidonHasher(2)([sigHash, relayerId]);
+    signal relayerNuHashRaw <== PoseidonHasher(2)([relayerNu, msgHash]);
+    signal relayerIsNotProvided <== IsZero()(relayerId);
+    relayerNuHash <== relayerNuHashRaw * (1 - relayerIsNotProvided);
 }

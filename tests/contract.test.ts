@@ -113,10 +113,10 @@ type Voter = {
 
 const voters: Voter[] = [];
 const census: bigint[] = [];
-let CensusRoot: bigint;
+let censusRoot: bigint;
 
 type Message = {
-  ephKey: [bigint, bigint];
+  ephPk: [bigint, bigint];
   nonce: bigint;
   ciphertext: bigint[];
 };
@@ -167,7 +167,7 @@ before(async () => {
     );
   }
 
-  CensusRoot = await getMerkleRoot(CENSUS_DEPTH, census);
+  censusRoot = await getMerkleRoot(CENSUS_DEPTH, census);
 });
 
 const relayer = new Keypair();
@@ -226,7 +226,7 @@ describe("Anon Vote", () => {
   const tempAdmin = new Keypair();
 
   const pollId = 5n;
-  let SK: bigint;
+  let coordinatorSk: bigint;
   let PKx: Uint8Array;
   let PKy: Uint8Array;
   const nChoices = 6;
@@ -271,7 +271,7 @@ describe("Anon Vote", () => {
 
   test("createPoll", async () => {
     const { sk: sk_, pub } = genBabyJubKeypair(babyjub, eddsa);
-    SK = sk_;
+    coordinatorSk = sk_;
     PKx = pub[0];
     PKy = pub[1];
     const coordinatorKey = {
@@ -289,7 +289,7 @@ describe("Anon Vote", () => {
       await createPoll({
         payer: payer.publicKey,
         id: pollId,
-        censusRoot: toBytesBE32(CensusRoot),
+        censusRoot: toBytesBE32(censusRoot),
         coordinatorKey,
         nChoices,
         votingStartTime,
@@ -306,8 +306,8 @@ describe("Anon Vote", () => {
     expect(toBigint(poll?.id)).to.equal(pollId);
     expect(poll?.nChoices).to.equal(nChoices);
     expect(poll?.coordinatorKey).to.deep.equal(coordinatorKey);
-    expect(poll?.censusRoot).to.deep.equal(toBytesBE32(CensusRoot));
-    expect(poll?.runningMsgHash).to.deep.equal(
+    expect(poll?.censusRoot).to.deep.equal(toBytesBE32(censusRoot));
+    expect(poll?.cumulativeMsgHash).to.deep.equal(
       Array.from({ length: 32 }, () => 0),
     );
     expect(poll?.votingStartTime.eq(votingStartTime)).to.be.true;
@@ -332,12 +332,8 @@ describe("Anon Vote", () => {
   });
 
   test("vote", async () => {
-    const N_choices = BigInt(nChoices);
-
-    const PollId = pollId;
-
-    const BatchLen = voters.length + 2;
-    expect(BatchLen).to.be.lessThan(MAX_BATCH);
+    const batchLen = voters.length + 2;
+    expect(batchLen).to.be.lessThan(MAX_BATCH);
 
     const quotaDb = new InMemoryDB(new Uint8Array(1));
     const quotaMt = new Merkletree(quotaDb, true, STATE_DEPTH);
@@ -347,98 +343,97 @@ describe("Anon Vote", () => {
 
     const prvRevoting = randomScalar(babyjub.subOrder);
 
-    for (let i = 0; i < BatchLen; i++) {
-      const voterIndex = BatchLen > 2 && i >= BatchLen - 2
+    for (let i = 0; i < batchLen; i++) {
+      const voterIndex = batchLen > 2 && i >= batchLen - 2
         ? voters.length - 1
         : i;
       const { prv, pub } = voters[voterIndex];
-      const Nonce = 5n + BigInt(i);
-      const M_N = poseidon([PLATFORM_NAME, PollId]);
+      const nonce = 5n + BigInt(i);
+      const M_N = poseidon([PLATFORM_NAME, pollId]);
       const sigN = eddsa.signPoseidon(prv, M_N);
       expect(eddsa.verifyPoseidon(M_N, sigN, pub)).to.be.true;
 
-      const SignaturePoint = [
+      const sigR = [
         F.toObject(sigN.R8[0]),
         F.toObject(sigN.R8[1]),
       ];
-      const SignatureScalar = sigN.S;
+      const sigS = sigN.S;
 
-      const sigHash = F.toObject(poseidon([
-        SignatureScalar,
-        SignaturePoint[0],
-        SignaturePoint[1],
-      ]));
-      const Choice = BigInt((i % nChoices) + 1); // 1..nChoices
+      const sigHash = F.toObject(poseidon([sigS, sigR[0], sigR[1]]));
+      const choice = BigInt((i % nChoices) + 1); // 1..nChoices
 
-      const r = randomScalar(babyjub.subOrder);
-      const Rraw = babyjub.mulPointEscalar(babyjub.Base8, r);
-      const Sraw = babyjub.mulPointEscalar([PKx, PKy], r);
-      const R: [bigint, bigint] = [F.toObject(Rraw[0]), F.toObject(Rraw[1])];
-      const S: [bigint, bigint] = [
-        F.toObject(Sraw[0]),
-        F.toObject(Sraw[1]),
+      const ephSk = randomScalar(babyjub.subOrder);
+      const ephPkRaw = babyjub.mulPointEscalar(babyjub.Base8, ephSk);
+      const sharedKeyRaw = babyjub.mulPointEscalar([PKx, PKy], ephSk);
+      const ephPk: [bigint, bigint] = [
+        F.toObject(ephPkRaw[0]),
+        F.toObject(ephPkRaw[1]),
+      ];
+      const sharedKey: [bigint, bigint] = [
+        F.toObject(sharedKeyRaw[0]),
+        F.toObject(sharedKeyRaw[1]),
       ];
 
       // normal votes, then key change, then a valid vote with new key, then an invalid vote
-      const RevotingKeyOld = i == BatchLen - 2 && BatchLen > 2
+      const revotingKeyOld = i == batchLen - 2 && batchLen > 2
         ? prvRevoting
         : 0n;
-      const RevotingKeyNew = i == BatchLen - 3 && BatchLen > 2
+      const revotingKeyNew = i == batchLen - 3 && batchLen > 2
         ? prvRevoting
         : 42n;
 
       const nuCoordinator = F.toObject(poseidon([sigHash]));
-      const P = [
+      const plaintext = [
         nuCoordinator,
-        Choice,
-        F.toObject(poseidon([RevotingKeyOld])),
-        F.toObject(poseidon([RevotingKeyNew])),
+        choice,
+        F.toObject(poseidon([revotingKeyOld])),
+        F.toObject(poseidon([revotingKeyNew])),
       ];
-      const CT = poseidonEncrypt(P, S, Nonce);
+      const ciphertext = poseidonEncrypt(plaintext, sharedKey, nonce);
 
-      const LIMBS = P.length;
+      const LIMBS = plaintext.length;
       const PAD = (LIMBS % 3 === 0) ? LIMBS : LIMBS + (3 - (LIMBS % 3));
-      if (CT.length !== PAD + 1) {
+      if (ciphertext.length !== PAD + 1) {
         throw new Error(
-          `CT length mismatch: got ${CT.length}, expected ${PAD + 1}`,
+          `CT length mismatch: got ${ciphertext.length}, expected ${PAD + 1}`,
         );
       }
 
-      let RelayerId = 0n;
+      let relayerId = 0n;
       let relayerNu = 0n;
 
       if (i == 1) {
         const relayerIdBuf = relayer.publicKey.toBuffer();
         relayerIdBuf[0] &= (1 << 5) - 1;
-        RelayerId = BigInt("0x" + relayerIdBuf.toString("hex"));
-        relayerNu = F.toObject(poseidon([sigHash, RelayerId]));
+        relayerId = BigInt("0x" + relayerIdBuf.toString("hex"));
+        relayerNu = F.toObject(poseidon([sigHash, relayerId]));
       }
 
-      const CoordinatorPK = [F.toObject(PKx), F.toObject(PKy)];
+      const coordinatorPk = [F.toObject(PKx), F.toObject(PKy)];
       const { path, pathPos } = await getMerkleProof(
         CENSUS_DEPTH,
         census,
         voterIndex,
       );
       const inputs = {
-        CensusRoot,
-        PollId,
-        N_choices,
-        RevotingKeyNew,
-        RevotingKeyOld,
+        censusRoot,
+        pollId,
+        nChoices: BigInt(nChoices),
+        revotingKeyNew,
+        revotingKeyOld,
 
-        Key: [F.toObject(pub[0]), F.toObject(pub[1])],
-        SignaturePoint,
-        SignatureScalar,
+        voterPk: [F.toObject(pub[0]), F.toObject(pub[1])],
+        sigR,
+        sigS,
 
-        Path: path,
-        PathPos: pathPos,
-        Choice,
-        ephR: r,
-        CoordinatorPK,
-        RelayerId,
-        Nonce,
-        CT,
+        path,
+        pathPos,
+        choice,
+        ephSk,
+        coordinatorPk,
+        relayerId,
+        nonce,
+        ciphertext,
       };
 
       let { proof, publicSignals } = await groth16.fullProve(
@@ -447,9 +442,11 @@ describe("Anon Vote", () => {
         "build/Vote/groth16_pkey.zkey",
       );
 
-      const MsgHash_js = F.toObject(poseidon([R[0], R[1], Nonce, ...CT]));
-      const RelayerNuHash_js = i == 1
-        ? F.toObject(poseidon([relayerNu, MsgHash_js]))
+      const msgHashJs = F.toObject(
+        poseidon([ephPk[0], ephPk[1], nonce, ...ciphertext]),
+      );
+      const relayerNuHashJs = i == 1
+        ? F.toObject(poseidon([relayerNu, msgHashJs]))
         : 0n;
 
       const MsgHash_pub = BigInt(publicSignals[0]);
@@ -459,14 +456,16 @@ describe("Anon Vote", () => {
       const N_choices_pub = BigInt(publicSignals[4]);
       const PK_pub = [BigInt(publicSignals[5]), BigInt(publicSignals[6])];
 
-      if (CensusRoot_pub !== CensusRoot) throw new Error("CensusRoot mismatch");
-      if (PollId_pub !== PollId) throw new Error("PollId mismatch");
-      if (MsgHash_pub !== MsgHash_js) throw new Error("MsgHash mismatch");
-      if (RelayerNuHash_pub !== RelayerNuHash_js) {
+      if (CensusRoot_pub !== censusRoot) throw new Error("CensusRoot mismatch");
+      if (PollId_pub !== pollId) throw new Error("PollId mismatch");
+      if (MsgHash_pub !== msgHashJs) throw new Error("MsgHash mismatch");
+      if (RelayerNuHash_pub !== relayerNuHashJs) {
         throw new Error("RelayerNuHash mismatch");
       }
-      if (N_choices_pub !== N_choices) throw new Error("N_choices mismatch");
-      if (PK_pub[0] != CoordinatorPK[0] || PK_pub[1] != CoordinatorPK[1]) {
+      if (N_choices_pub !== BigInt(nChoices)) {
+        throw new Error("N_choices mismatch");
+      }
+      if (PK_pub[0] != coordinatorPk[0] || PK_pub[1] != coordinatorPk[1]) {
         throw new Error("PK mismatch");
       }
 
@@ -481,11 +480,11 @@ describe("Anon Vote", () => {
         onVote((event) => {
           try {
             expect(event.ciphertext).to.deep.equal(
-              CT.map((x) => toBytesBE32(x)),
+              ciphertext.map((x) => toBytesBE32(x)),
             );
-            expect(event.ephKey.x).to.deep.equal(toBytesBE32(R[0]));
-            expect(event.ephKey.y).to.deep.equal(toBytesBE32(R[1]));
-            expect(toBigint(event.nonce)).to.equal(Nonce);
+            expect(event.ephPk.x).to.deep.equal(toBytesBE32(ephPk[0]));
+            expect(event.ephPk.y).to.deep.equal(toBytesBE32(ephPk[1]));
+            expect(toBigint(event.nonce)).to.equal(nonce);
             resolve();
           } catch (error) {
             reject(error);
@@ -497,52 +496,52 @@ describe("Anon Vote", () => {
       });
 
       if (i == 1) {
-        const RootQuota_before = (await quotaMt.root()).bigInt();
-        const RootUniq_before = (await uniqMt.root()).bigInt();
+        const rootQuotaOld = (await quotaMt.root()).bigInt();
+        const rootUniqOld = (await uniqMt.root()).bigInt();
 
         const idx = relayerNu & ((1n << BigInt(STATE_DEPTH)) - 1n);
 
-        const PrevCount = quotaMtMap.get(idx) ?? 0;
-        quotaMtMap.set(idx, PrevCount + 1);
+        const coundOld = quotaMtMap.get(idx) ?? 0;
+        quotaMtMap.set(idx, coundOld + 1);
 
         let proofQuota: CircomProcessorProof | CircomVerifierProof;
         try {
           proofQuota = await quotaMt.addAndGetCircomProof(
             idx,
-            BigInt(PrevCount + 1),
+            BigInt(coundOld + 1),
           );
         } catch (e) {
           if (e != ErrEntryIndexAlreadyExists) {
             throw e;
           }
 
-          proofQuota = await quotaMt.update(idx, BigInt(PrevCount + 1));
+          proofQuota = await quotaMt.update(idx, BigInt(coundOld + 1));
         }
 
         const proofUniq = await uniqMt.addAndGetCircomProof(MsgHash_pub, 1n);
 
-        const SiblingsQuota = proofQuota.siblings.map((h) => h.bigInt());
-        expect(SiblingsQuota.length).to.equal(STATE_DEPTH);
-        const SiblingsUniq = proofUniq.siblings.map((h) => h.bigInt());
-        expect(SiblingsUniq.length).to.equal(STATE_DEPTH);
+        const siblingsQuota = proofQuota.siblings.map((h) => h.bigInt());
+        expect(siblingsQuota.length).to.equal(STATE_DEPTH);
+        const siblingsUniq = proofUniq.siblings.map((h) => h.bigInt());
+        expect(siblingsUniq.length).to.equal(STATE_DEPTH);
 
-        const MsgLimit = 3n;
+        const msgLimit = 3n;
 
         const inputs = {
-          RootQuota_before,
-          RootUniq_before,
-          MsgHash: MsgHash_js,
-          MsgLimit,
-          Nu: relayerNu,
-          PrevCount: BigInt(PrevCount),
-          SiblingsQuota,
-          NoAuxQuota: BigInt(proofQuota.isOld0),
-          AuxKeyQuota: proofQuota.oldKey.bigInt(),
-          AuxValueQuota: proofQuota.oldValue.bigInt(),
-          SiblingsUniq,
-          NoAuxUniq: BigInt(proofUniq.isOld0),
-          AuxKeyUniq: proofUniq.oldKey.bigInt(),
-          AuxValueUniq: proofUniq.oldValue.bigInt(),
+          rootQuotaOld,
+          rootUniqOld,
+          msgHash: msgHashJs,
+          msgLimit,
+          nu: relayerNu,
+          countOld: BigInt(coundOld),
+          siblingsQuota,
+          noAuxQuota: BigInt(proofQuota.isOld0),
+          auxKeyQuota: proofQuota.oldKey.bigInt(),
+          auxValueQuota: proofQuota.oldValue.bigInt(),
+          siblingsUniq,
+          noAuxUniq: BigInt(proofUniq.isOld0),
+          auxKeyUniq: proofUniq.oldKey.bigInt(),
+          auxValueUniq: proofUniq.oldValue.bigInt(),
         };
 
         const { proof: relayerProof, publicSignals } = await groth16.fullProve(
@@ -551,16 +550,16 @@ describe("Anon Vote", () => {
           "build/Relay/groth16_pkey.zkey",
         );
 
-        const Root_state_before_pub = BigInt(publicSignals[0]);
-        const Root_state_after = BigInt(publicSignals[1]);
-        const RelayerNuHash_pub = BigInt(publicSignals[2]);
-        const MsgHash_pubRelayer = BigInt(publicSignals[3]);
-        const MsgLimit_pub = BigInt(publicSignals[4]);
+        const rootStateOldPub = BigInt(publicSignals[0]);
+        const rootStateNew = BigInt(publicSignals[1]);
+        const relayerNuHashPub = BigInt(publicSignals[2]);
+        const msgHashPubRelayer = BigInt(publicSignals[3]);
+        const msgLimitPub = BigInt(publicSignals[4]);
 
-        expect(Root_state_before_pub).to.equal(
-          F.toObject(poseidon([RootQuota_before, RootUniq_before])),
+        expect(rootStateOldPub).to.equal(
+          F.toObject(poseidon([rootQuotaOld, rootUniqOld])),
         );
-        expect(Root_state_after).to.equal(
+        expect(rootStateNew).to.equal(
           F.toObject(
             poseidon([
               (await quotaMt.root()).bigInt(),
@@ -568,9 +567,9 @@ describe("Anon Vote", () => {
             ]),
           ),
         );
-        expect(RelayerNuHash_pub).to.equal(RelayerNuHash_js);
-        expect(MsgHash_pubRelayer).to.equal(MsgHash_js);
-        expect(MsgLimit_pub).to.equal(MsgLimit);
+        expect(relayerNuHashPub).to.equal(relayerNuHashJs);
+        expect(msgHashPubRelayer).to.equal(msgHashJs);
+        expect(msgLimitPub).to.equal(msgLimit);
 
         const vkey = JSON.parse(
           readFileSync("build/Relay/groth16_vkey.json", "utf8"),
@@ -584,23 +583,26 @@ describe("Anon Vote", () => {
           await voteWithRelayer({
             relayer: relayer.publicKey,
             pollId,
-            msgHash: toBytesBE32(MsgHash_js),
-            ciphertext: CT.map((x) => toBytesBE32(x)),
-            ephKey: { x: toBytesBE32(R[0]), y: toBytesBE32(R[1]) },
-            nonce: Nonce,
+            msgHash: toBytesBE32(msgHashJs),
+            ciphertext: ciphertext.map((x) => toBytesBE32(x)),
+            ephPk: {
+              x: toBytesBE32(ephPk[0]),
+              y: toBytesBE32(ephPk[1]),
+            },
+            nonce: nonce,
             proof: {
               a: Array.from(serializedProof.a),
               b: Array.from(serializedProof.b),
               c: Array.from(serializedProof.c),
             },
             platformFeeDestination: platformFeeDestination.publicKey,
-            relayerNuHash: toBytesBE32(RelayerNuHash_js),
+            relayerNuHash: toBytesBE32(relayerNuHashJs),
             relayerProof: {
               a: Array.from(serializedRelayerProof.a),
               b: Array.from(serializedRelayerProof.b),
               c: Array.from(serializedRelayerProof.c),
             },
-            rootStateAfter: toBytesBE32(Root_state_after),
+            rootStateNew: toBytesBE32(rootStateNew),
           }),
           [relayer],
         );
@@ -609,9 +611,12 @@ describe("Anon Vote", () => {
           await vote({
             payer: payer.publicKey,
             pollId,
-            ciphertext: CT.map((x) => toBytesBE32(x)),
-            ephKey: { x: toBytesBE32(R[0]), y: toBytesBE32(R[1]) },
-            nonce: Nonce,
+            ciphertext: ciphertext.map((x) => toBytesBE32(x)),
+            ephPk: {
+              x: toBytesBE32(ephPk[0]),
+              y: toBytesBE32(ephPk[1]),
+            },
+            nonce: nonce,
             proof: {
               a: Array.from(serializedProof.a),
               b: Array.from(serializedProof.b),
@@ -624,9 +629,9 @@ describe("Anon Vote", () => {
       }
       await eventPromise;
       messages.push({
-        ephKey: R,
-        nonce: Nonce,
-        ciphertext: CT,
+        ephPk,
+        nonce,
+        ciphertext,
       });
     }
 
@@ -643,27 +648,27 @@ describe("Anon Vote", () => {
     const db = new InMemoryDB(new Uint8Array());
     const mt = new Merkletree(db, true, STATE_DEPTH);
     const mtMap = new Map();
-    const Root_before = (await mt.root()).bigInt();
-    expect(Root_before).to.equal(0n);
+    const rootOld = (await mt.root()).bigInt();
+    expect(rootOld).to.equal(0n);
 
-    const H_before = 0n;
-    let H = H_before;
-    const Tally_before = Array<bigint>(MAX_CHOICES).fill(0n);
-    const tally = Tally_before.slice();
+    const cumulativeMsgHashOld = 0n;
+    let cumulativeMsgHash = cumulativeMsgHashOld;
+    const tallyOld = Array<bigint>(MAX_CHOICES).fill(0n);
+    const tally = tallyOld.slice();
 
-    const TallySalt_before = 42n;
-    const TallySalt_after = 43n;
+    const tallySaltOld = 42n;
+    const tallySaltNew = 43n;
 
-    const EphKey: bigint[][] = [];
-    const Nonce: bigint[] = [];
-    const CT: bigint[][] = [];
-    const Siblings: bigint[][] = [];
-    const PrevChoice: bigint[] = [];
-    const IsPrevEmpty: bigint[] = [];
-    const NoAux: bigint[] = [];
-    const AuxKey: bigint[] = [];
-    const AuxValue: bigint[] = [];
-    const RevotingKeyOldActual: bigint[] = [];
+    const ephPk: bigint[][] = [];
+    const nonce: bigint[] = [];
+    const ciphertext: bigint[][] = [];
+    const siblings: bigint[][] = [];
+    const choiceOld: bigint[] = [];
+    const wasLeafEmpty: bigint[] = [];
+    const noAux: bigint[] = [];
+    const auxKey: bigint[] = [];
+    const auxValue: bigint[] = [];
+    const revotingKeyOld: bigint[] = [];
 
     for (const message of messages) {
       const [
@@ -673,7 +678,7 @@ describe("Anon Vote", () => {
         revotingKeyNew,
       ] = poseidonDecrypt(
         message.ciphertext,
-        mulPointEscalar(message.ephKey, SK),
+        mulPointEscalar(message.ephPk, coordinatorSk),
         message.nonce,
         LIMBS,
       );
@@ -690,43 +695,43 @@ describe("Anon Vote", () => {
       if (voteIsValid) {
         try {
           proof = await mt.addAndGetCircomProof(idx, leaf);
-          IsPrevEmpty.push(1n);
+          wasLeafEmpty.push(1n);
         } catch (e) {
           if (e != ErrEntryIndexAlreadyExists) {
             throw e;
           }
 
           proof = await mt.update(idx, leaf);
-          IsPrevEmpty.push(0n);
+          wasLeafEmpty.push(0n);
         }
       } else {
         proof = await mt.generateCircomVerifierProof(idx, ZERO_HASH);
-        IsPrevEmpty.push(0n);
+        wasLeafEmpty.push(0n);
       }
 
-      NoAux.push(BigInt(proof.isOld0));
-      AuxKey.push(proof.oldKey.bigInt());
-      AuxValue.push(proof.oldValue.bigInt());
+      noAux.push(BigInt(proof.isOld0));
+      auxKey.push(proof.oldKey.bigInt());
+      auxValue.push(proof.oldValue.bigInt());
 
-      const siblings = proof.siblings.map((h) => h.bigInt());
-      expect(siblings.length).to.equal(STATE_DEPTH);
+      const proofSiblings = proof.siblings.map((h) => h.bigInt());
+      expect(proofSiblings.length).to.equal(STATE_DEPTH);
 
-      EphKey.push(message.ephKey);
-      Nonce.push(message.nonce);
-      CT.push(message.ciphertext);
-      Siblings.push(siblings);
-      PrevChoice.push(prevLeaf.choice);
-      RevotingKeyOldActual.push(prevLeaf.revotingKey);
+      ephPk.push(message.ephPk);
+      nonce.push(message.nonce);
+      ciphertext.push(message.ciphertext);
+      siblings.push(proofSiblings);
+      choiceOld.push(prevLeaf.choice);
+      revotingKeyOld.push(prevLeaf.revotingKey);
 
       const msgHash = F.toObject(
         poseidon([
-          message.ephKey[0],
-          message.ephKey[1],
+          message.ephPk[0],
+          message.ephPk[1],
           message.nonce,
           ...message.ciphertext,
         ]),
       );
-      H = F.toObject(poseidon([H, msgHash]));
+      cumulativeMsgHash = F.toObject(poseidon([cumulativeMsgHash, msgHash]));
 
       if (voteIsValid) {
         if (prevLeaf.choice !== 0n) tally[Number(prevLeaf.choice) - 1] -= 1n;
@@ -734,39 +739,39 @@ describe("Anon Vote", () => {
       }
     }
 
-    while (EphKey.length < MAX_BATCH) {
-      EphKey.push(EphKey[EphKey.length - 1]);
-      Nonce.push(Nonce[Nonce.length - 1]);
-      CT.push(CT[CT.length - 1]);
-      Siblings.push(Siblings[Siblings.length - 1]);
-      PrevChoice.push(PrevChoice[PrevChoice.length - 1]);
-      IsPrevEmpty.push(IsPrevEmpty[IsPrevEmpty.length - 1]);
-      NoAux.push(NoAux[NoAux.length - 1]);
-      AuxKey.push(AuxKey[AuxKey.length - 1]);
-      AuxValue.push(AuxValue[AuxValue.length - 1]);
-      RevotingKeyOldActual.push(
-        RevotingKeyOldActual[RevotingKeyOldActual.length - 1],
+    while (ephPk.length < MAX_BATCH) {
+      ephPk.push(ephPk[ephPk.length - 1]);
+      nonce.push(nonce[nonce.length - 1]);
+      ciphertext.push(ciphertext[ciphertext.length - 1]);
+      siblings.push(siblings[siblings.length - 1]);
+      choiceOld.push(choiceOld[choiceOld.length - 1]);
+      wasLeafEmpty.push(wasLeafEmpty[wasLeafEmpty.length - 1]);
+      noAux.push(noAux[noAux.length - 1]);
+      auxKey.push(auxKey[auxKey.length - 1]);
+      auxValue.push(auxValue[auxValue.length - 1]);
+      revotingKeyOld.push(
+        revotingKeyOld[revotingKeyOld.length - 1],
       );
     }
 
     const inputs = {
-      Root_before,
-      H_before: 0n,
-      TallySalt_before,
-      TallySalt_after,
-      Tally_before,
-      BatchLen: BigInt(messages.length),
-      SK,
-      EphKey,
-      Nonce,
-      CT,
-      Siblings,
-      PrevChoice,
-      RevotingKeyOldActual,
-      NoAux,
-      AuxKey,
-      AuxValue,
-      IsPrevEmpty,
+      rootOld,
+      cumulativeMsgHashOld,
+      tallySaltOld,
+      tallySaltNew,
+      tallyOld,
+      batchLen: BigInt(messages.length),
+      coordinatorSk,
+      ephPk,
+      nonce,
+      ciphertext,
+      siblings,
+      choiceOld,
+      revotingKeyOld,
+      noAux,
+      auxKey,
+      auxValue,
+      wasLeafEmpty,
     };
 
     const { proof, publicSignals } = await groth16.fullProve(
@@ -775,20 +780,20 @@ describe("Anon Vote", () => {
       "build/Tally/groth16_pkey.zkey",
     );
 
-    const tallyHash_before = F.toObject(
-      poseidon([TallySalt_before, ...Tally_before]),
+    const tallyHashOld = F.toObject(
+      poseidon([tallySaltOld, ...tallyOld]),
     );
-    expect(BigInt(publicSignals[0])).to.equal(tallyHash_before);
-    const Root_after = BigInt(publicSignals[1]);
-    const H_after = BigInt(publicSignals[2]);
-    const TallyHash_after = BigInt(publicSignals[3]);
-    expect(BigInt(publicSignals[4])).to.equal(Root_before);
-    expect(BigInt(publicSignals[5])).to.equal(H_before);
+    expect(BigInt(publicSignals[0])).to.equal(tallyHashOld);
+    const rootNew = BigInt(publicSignals[1]);
+    const cumulativeMsgHashNew = BigInt(publicSignals[2]);
+    const tallyHashNew = BigInt(publicSignals[3]);
+    expect(BigInt(publicSignals[4])).to.equal(rootOld);
+    expect(BigInt(publicSignals[5])).to.equal(cumulativeMsgHashOld);
 
-    expect(Root_after).to.equal((await mt.root()).bigInt());
-    expect(H_after).to.equal(H);
-    expect(TallyHash_after).to.equal(
-      F.toObject(poseidon([TallySalt_after, ...tally])),
+    expect(rootNew).to.equal((await mt.root()).bigInt());
+    expect(cumulativeMsgHashNew).to.equal(cumulativeMsgHash);
+    expect(tallyHashNew).to.equal(
+      F.toObject(poseidon([tallySaltNew, ...tally])),
     );
 
     const vkey = JSON.parse(
@@ -799,7 +804,7 @@ describe("Anon Vote", () => {
 
     await sendIx(
       await createTally({
-        initialTallyHash: toBytesBE32(tallyHash_before),
+        initialTallyHash: toBytesBE32(tallyHashOld),
         payer: payer.publicKey,
         pollId,
       }),
@@ -809,8 +814,8 @@ describe("Anon Vote", () => {
       connection,
       findTally(pollId, payer.publicKey),
     );
-    expect(tallyAcc?.tallyHash).to.deep.equal(toBytesBE32(tallyHash_before));
-    expect(tallyAcc?.runningMsgHash).to.deep.equal(
+    expect(tallyAcc?.tallyHash).to.deep.equal(toBytesBE32(tallyHashOld));
+    expect(tallyAcc?.cumulativeMsgHash).to.deep.equal(
       Array.from({ length: 32 }, () => 0),
     );
     expect(tallyAcc?.root).to.deep.equal(Array.from({ length: 32 }, () => 0));
@@ -827,7 +832,7 @@ describe("Anon Vote", () => {
 
     await sendIx(
       await createTally({
-        initialTallyHash: toBytesBE32(tallyHash_before),
+        initialTallyHash: toBytesBE32(tallyHashOld),
         payer: payer.publicKey,
         pollId,
       }),
@@ -838,7 +843,7 @@ describe("Anon Vote", () => {
         pollId,
         payer: payer.publicKey,
         tally: tally.slice(0, nChoices),
-        tallySalt: TallySalt_after,
+        tallySalt: tallySaltNew,
       }),
     )).to.rejectedWith("IncorrectTally");
 
@@ -852,9 +857,9 @@ describe("Anon Vote", () => {
           c: Array.from(serializedProof.c),
         },
         owner: payer.publicKey,
-        rootAfter: toBytesBE32(Root_after),
-        runningMsgHashAfter: toBytesBE32(H_after),
-        tallyHashAfter: toBytesBE32(TallyHash_after),
+        rootNew: toBytesBE32(rootNew),
+        cumulativeMsgHashNew: toBytesBE32(cumulativeMsgHashNew),
+        tallyHashNew: toBytesBE32(tallyHashNew),
       }),
     );
 
@@ -865,7 +870,7 @@ describe("Anon Vote", () => {
         pollId,
         payer: payer.publicKey,
         tally: fakeTally,
-        tallySalt: TallySalt_after,
+        tallySalt: tallySaltNew,
       }),
     )).to.rejectedWith("IncorrectTally");
 
@@ -874,7 +879,7 @@ describe("Anon Vote", () => {
         pollId,
         payer: payer.publicKey,
         tally: tally.slice(0, nChoices),
-        tallySalt: TallySalt_after,
+        tallySalt: tallySaltNew,
       }),
     );
 

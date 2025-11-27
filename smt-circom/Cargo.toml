@@ -11,4 +11,4 @@ rocksdb = { version = "0.24", default-features = false, optional = true }
 thiserror = "2"
 
 [features]
-default = ["rocksdb", "rocksdb/bindgen-runtime"]
+default = ["rocksdb"]

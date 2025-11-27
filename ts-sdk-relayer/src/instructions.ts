@@ -83,7 +83,7 @@ export type RelayParams = {
   relayer: PublicKey;
   stateId: BN | bigint;
   proof: CompressedProof;
-  rootStateAfter: number[];
+  rootStateNew: number[];
   msgHash: number[];
   discriminator: number;
   nuHash: number[];
@@ -97,7 +97,7 @@ export async function relay({
   relayer,
   stateId,
   proof,
-  rootStateAfter,
+  rootStateNew,
   msgHash,
   discriminator,
   nuHash,
@@ -110,7 +110,7 @@ export async function relay({
     .relay(
       toBN(stateId),
       proof,
-      rootStateAfter,
+      rootStateNew,
       msgHash,
       discriminator,
       nuHash,

@@ -127,7 +127,7 @@ export async function createPoll({
 
 export type VoteParams = {
   payer: PublicKey;
-  ephKey: Point;
+  ephPk: Point;
   nonce: BN | bigint;
   ciphertext: number[][];
   pollId: BN | bigint;
@@ -138,7 +138,7 @@ export type VoteParams = {
 
 export async function vote({
   payer,
-  ephKey,
+  ephPk,
   nonce,
   ciphertext,
   pollId,
@@ -148,7 +148,7 @@ export async function vote({
 }: VoteParams): Promise<InstructionWithCu> {
   const instruction = await getProgram().methods
     .vote(
-      ephKey,
+      ephPk,
       toBN(nonce),
       ciphertext,
       proof,
@@ -173,34 +173,34 @@ export async function vote({
 export type VoteWithRelayerParams = {
   relayer: PublicKey;
   msgHash: number[];
-  ephKey: Point;
+  ephPk: Point;
   nonce: BN | bigint;
   ciphertext: number[][];
   relayerNuHash: number[];
   pollId: BN | bigint;
   proof: CompressedProof;
   relayerProof: CompressedProof;
-  rootStateAfter: number[];
+  rootStateNew: number[];
   platformFeeDestination: PublicKey;
 };
 
 export async function voteWithRelayer({
   relayer,
   msgHash,
-  ephKey,
+  ephPk,
   nonce,
   ciphertext,
   relayerNuHash,
   pollId,
   proof,
   relayerProof,
-  rootStateAfter,
+  rootStateNew,
   platformFeeDestination,
 }: VoteWithRelayerParams): Promise<InstructionWithCu> {
   const data = serializeVoteData({
     ciphertext,
     proof,
-    ephKey,
+    ephPk,
     nonce,
   });
   return relay({
@@ -211,7 +211,7 @@ export async function voteWithRelayer({
     msgHash,
     nuHash: relayerNuHash,
     proof: relayerProof,
-    rootStateAfter,
+    rootStateNew,
     targetAccounts: [{
       isSigner: false,
       isWritable: false,
@@ -257,21 +257,21 @@ export type TallyBatchParams = {
   pollId: BN | bigint;
   owner: PublicKey;
   proof: CompressedProof;
-  rootAfter: number[];
-  runningMsgHashAfter: number[];
-  tallyHashAfter: number[];
+  rootNew: number[];
+  cumulativeMsgHashNew: number[];
+  tallyHashNew: number[];
 };
 
 export async function tallyBatch(
-  { pollId, owner, proof, rootAfter, runningMsgHashAfter, tallyHashAfter }:
+  { pollId, owner, proof, rootNew, cumulativeMsgHashNew, tallyHashNew }:
     TallyBatchParams,
 ): Promise<InstructionWithCu> {
   const instruction = await getProgram().methods
     .tallyBatch(
       proof,
-      rootAfter,
-      runningMsgHashAfter,
-      tallyHashAfter,
+      rootNew,
+      cumulativeMsgHashNew,
+      tallyHashNew,
     )
     .accounts({ tally: findTally(pollId, owner) })
     .instruction();
@@ -359,27 +359,27 @@ export async function withdrawPoll(
 type SerializeVoteDataParams = {
   ciphertext: number[][];
   proof: CompressedProof;
-  ephKey: Point;
+  ephPk: Point;
   nonce: BN | bigint;
 };
 
 export function serializeVoteData({
   ciphertext,
   proof,
-  ephKey,
+  ephPk,
   nonce,
 }: SerializeVoteDataParams): Buffer {
   const res = Buffer.alloc(
-    ephKey.x.length + ephKey.y.length + 8 +
+    ephPk.x.length + ephPk.y.length + 8 +
       ciphertext.length * ciphertext[0].length + proof.a.length +
       proof.b.length +
       proof.c.length,
   );
   let offset = 0;
-  res.set(ephKey.x, offset);
-  offset += ephKey.x.length;
-  res.set(ephKey.y, offset);
-  offset += ephKey.y.length;
+  res.set(ephPk.x, offset);
+  offset += ephPk.x.length;
+  res.set(ephPk.y, offset);
+  offset += ephPk.y.length;
   res.set(toBN(nonce).toArrayLike(Buffer, "le", 8), offset);
   offset += 8;
   for (const c of ciphertext) {

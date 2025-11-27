@@ -34,7 +34,7 @@ pub fn finish_tally(ctx: Context<FinishTally>, tally: Vec<u64>, tally_salt: u64)
     );
 
     require!(
-        tally_acc.running_msg_hash == poll.running_msg_hash,
+        tally_acc.cumulative_msg_hash == poll.cumulative_msg_hash,
         AnonVoteError::IncorrectTally
     );
 

@@ -6,7 +6,7 @@ use crate::state::*;
 #[derive(Clone, Debug)]
 pub struct VoteEvent {
     pub poll_id: u64,
-    pub eph_key: Point,
+    pub eph_pk: Point,
     pub nonce: u64,
     pub ciphertext: [[u8; 32]; 7],
     pub msg_hash: [u8; 32],

@@ -1,4 +1,4 @@
-use rocksdb::{ColumnFamily, DB, WriteBatch};
+use rocksdb::{ColumnFamily, WriteBatch, DB};
 use std::cell::RefCell;
 
 use super::NodeStore;

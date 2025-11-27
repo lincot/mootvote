@@ -24,7 +24,7 @@ pub fn create_tally(
 ) -> Result<()> {
     ctx.accounts.tally.set_inner(Tally {
         tally_hash: initial_tally_hash,
-        running_msg_hash: [0; 32],
+        cumulative_msg_hash: [0; 32],
         root: [0; 32],
     });
 

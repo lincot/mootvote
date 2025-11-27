@@ -168,8 +168,8 @@ impl DbManager {
         VALUES ($1,$2,$3,$4,$5)
         "#,
             e.poll_id as i64,
-            &e.eph_key.x,
-            &e.eph_key.y,
+            &e.eph_pk.x,
+            &e.eph_pk.y,
             e.nonce as i64,
             &unsafe { transmute::<[[u8; 32]; 7], [u8; 224]>(e.ciphertext) },
         )

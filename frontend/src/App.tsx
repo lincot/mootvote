@@ -2102,9 +2102,9 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         BigInt("0x" + poll.coordinator_key[1]),
       ];
 
-      const N_choices = BigInt(choices.length);
-      const PollId = BigInt(poll.poll_id);
-      const Choice = BigInt(selected + 1);
+      const nChoices = BigInt(choices.length);
+      const pollId = BigInt(poll.poll_id);
+      const choice = BigInt(selected + 1);
 
       setStage("Downloading census & building Merkle proof…");
       const ab: ArrayBuffer = await fetch(poll.census_url).then((r) =>
@@ -2137,51 +2137,57 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         found,
       );
 
-      const M_N = poseidon([PLATFORM_NAME, PollId]);
+      const M_N = poseidon([PLATFORM_NAME, pollId]);
       const sigN = eddsa.signPoseidon(prv, M_N);
-      const SignaturePoint: [bigint, bigint] = [
+      const sigR: [bigint, bigint] = [
         F.toObject(sigN.R8[0]),
         F.toObject(sigN.R8[1]),
       ];
-      const SignatureScalar = sigN.S;
+      const sigS = sigN.S;
       const sigHash = F.toObject(
         poseidon([
-          SignatureScalar,
-          SignaturePoint[0],
-          SignaturePoint[1],
+          sigS,
+          sigR[0],
+          sigR[1],
         ]),
       );
 
-      let r = randomScalar(babyjub.subOrder);
-      const Rraw = babyjub.mulPointEscalar(babyjub.Base8, r);
-      const Sraw = babyjub.mulPointEscalar([F.e(PK[0]), F.e(PK[1])], r);
-      const S: [bigint, bigint] = [
-        F.toObject(Sraw[0]),
-        F.toObject(Sraw[1]),
+      let ephSk = randomScalar(babyjub.subOrder);
+      const ephPkRaw = babyjub.mulPointEscalar(babyjub.Base8, ephSk);
+      const sharedKeyRaw = babyjub.mulPointEscalar(
+        [F.e(PK[0]), F.e(PK[1])],
+        ephSk,
+      );
+      const sharedKey: [bigint, bigint] = [
+        F.toObject(sharedKeyRaw[0]),
+        F.toObject(sharedKeyRaw[1]),
       ];
 
-      const R: [bigint, bigint] = [F.toObject(Rraw[0]), F.toObject(Rraw[1])];
+      const ephPk: [bigint, bigint] = [
+        F.toObject(ephPkRaw[0]),
+        F.toObject(ephPkRaw[1]),
+      ];
 
-      const RevotingKeyOld = oldSec;
-      const RevotingKeyNew = newSec;
+      const revotingKeyOld = oldSec;
+      const revotingKeyNew = newSec;
 
       const nuCoordinator = F.toObject(poseidon([sigHash]));
       const P = [
         nuCoordinator,
-        Choice,
-        F.toObject(poseidon([RevotingKeyOld])),
-        F.toObject(poseidon([RevotingKeyNew])),
+        choice,
+        F.toObject(poseidon([revotingKeyOld])),
+        F.toObject(poseidon([revotingKeyNew])),
       ];
-      const Nonce = (() => {
+      const nonce = (() => {
         const u = new Uint32Array(2);
         crypto.getRandomValues(u);
         return (BigInt(u[0]) << 32n) | BigInt(u[1]);
       })();
-      const CT = poseidonEncrypt(P, S, Nonce);
+      const ciphertext = poseidonEncrypt(P, sharedKey, nonce);
 
-      const CoordinatorPK = PK;
+      const coordinatorPk = PK;
 
-      let RelayerId = 0n;
+      let relayerId = 0n;
       let relayerNu;
       if (useRelayer) {
         setStage("Fetching relayer information…");
@@ -2191,28 +2197,28 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         }
         const relayerIdBuf = relayerConfig.relayer.feeKey.toBuffer();
         relayerIdBuf[0] &= (1 << 5) - 1;
-        RelayerId = BigInt("0x" + relayerIdBuf.toString("hex"));
-        relayerNu = F.toObject(poseidon([sigHash, RelayerId]));
+        relayerId = BigInt("0x" + relayerIdBuf.toString("hex"));
+        relayerNu = F.toObject(poseidon([sigHash, relayerId]));
       }
 
       setStage("Generating proof… (this may take a bit)");
       const inputs = {
-        CensusRoot: BigInt("0x" + poll.census_root),
-        PollId,
-        N_choices,
-        RevotingKeyNew,
-        RevotingKeyOld,
-        Key: pub,
-        SignaturePoint,
-        SignatureScalar,
-        Path: path,
-        PathPos: pathPos,
-        Choice,
-        ephR: r,
-        CoordinatorPK,
-        RelayerId,
-        Nonce,
-        CT,
+        censusRoot: BigInt("0x" + poll.census_root),
+        pollId,
+        nChoices,
+        revotingKeyNew,
+        revotingKeyOld,
+        voterPk: pub,
+        sigR,
+        sigS,
+        path,
+        pathPos,
+        choice,
+        ephSk,
+        coordinatorPk,
+        relayerId,
+        nonce,
+        ciphertext,
       };
       const { proof } = await groth16.fullProve(
         inputs,
@@ -2225,12 +2231,12 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         setStage("Preparing relayer request…");
 
         const msgHashBig = F.toObject(
-          poseidon([R[0], R[1], Nonce, ...CT]),
+          poseidon([ephPk[0], ephPk[1], nonce, ...ciphertext]),
         ) as bigint;
         const msgHashHex = bytesToHex(toBytes32(msgHashBig));
         const nuHex = bytesToHex(toBytes32(relayerNu));
 
-        const ciphertextBytes: number[][] = CT.map((c) =>
+        const ciphertextBytes: number[][] = ciphertext.map((c) =>
           Array.from(toBytes32(c))
         );
         const proofCompressed = {
@@ -2238,9 +2244,9 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
           b: Array.from(serializedProof.b),
           c: Array.from(serializedProof.c),
         };
-        const ephKeyBytes = {
-          x: Array.from(toBytes32(R[0])),
-          y: Array.from(toBytes32(R[1])),
+        const ephPkBytes = {
+          x: Array.from(toBytes32(ephPk[0])),
+          y: Array.from(toBytes32(ephPk[1])),
         };
 
         if (!RELAYER_URL) {
@@ -2250,8 +2256,8 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         const dataU8 = serializeVoteData({
           ciphertext: ciphertextBytes,
           proof: proofCompressed,
-          ephKey: ephKeyBytes,
-          nonce: Nonce,
+          ephPk: ephPkBytes,
+          nonce: nonce,
         });
         const dataHex = bytesToHex(dataU8);
 
@@ -2266,7 +2272,7 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
           {
             is_signer: false,
             is_writable: true,
-            pubkey: findPoll(PollId).toBase58(),
+            pubkey: findPoll(pollId).toBase58(),
           },
           {
             is_signer: false,
@@ -2281,7 +2287,7 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
           discriminator: 4,
           data: dataHex,
           target_program: PROGRAM_ID.toBase58(),
-          state_id: String(PollId),
+          state_id: String(pollId),
           cu_limit: 200_000,
           accounts,
         };
@@ -2319,13 +2325,13 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         const platform = await fetchPlatformConfig(connection);
         const ix: InstructionWithCu = await vote({
           payer: wallet.publicKey,
-          pollId: PollId,
-          ciphertext: CT.map((c) => Array.from(toBytes32(c))),
-          ephKey: {
-            x: Array.from(toBytes32(R[0])),
-            y: Array.from(toBytes32(R[1])),
+          pollId: pollId,
+          ciphertext: ciphertext.map((c) => Array.from(toBytes32(c))),
+          ephPk: {
+            x: Array.from(toBytes32(ephPk[0])),
+            y: Array.from(toBytes32(ephPk[1])),
           },
-          nonce: Nonce,
+          nonce: nonce,
           proof: {
             a: Array.from(serializedProof.a),
             b: Array.from(serializedProof.b),
@@ -2624,7 +2630,7 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
       if (!keypair) throw new Error("No active ZK tallier key");
       if (!poll) throw new Error("Poll not loaded");
 
-      const tally_before = Array(poll.choices.length).fill(0n);
+      const tallyOld = Array(poll.choices.length).fill(0n);
       const saltU8 = new Uint8Array(8);
       crypto.getRandomValues(saltU8);
       let salt = 0n;
@@ -2632,14 +2638,14 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
 
       const poseidon = await getPoseidon();
       const F = poseidon.F;
-      const tallyBeforeHash = F.toObject(
+      const tallyOldHash = F.toObject(
         poseidon([
           salt,
-          ...tally_before,
-          ...Array(MAX_CHOICES - tally_before.length).fill(0n),
+          ...tallyOld,
+          ...Array(MAX_CHOICES - tallyOld.length).fill(0n),
         ]),
       );
-      const initialTallyHashBytes = toBytes32(tallyBeforeHash);
+      const initialTallyHashBytes = toBytes32(tallyOldHash);
 
       const ix = await createTally({
         initialTallyHash: Array.from(initialTallyHashBytes),
@@ -2662,7 +2668,7 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         rootHex: "0x" + "00".repeat(32),
         runningMsgHashHex: "0x" + "00".repeat(32),
         tallySaltHex: toHex32(salt),
-        tallyCounts: tally_before.map((x) => x.toString(10)),
+        tallyCounts: tallyOld.map((x) => x.toString(10)),
         leaves: {},
       };
       await saveTallyStore(s);
@@ -2717,23 +2723,23 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
           await mt.update(idx, leafHash);
         }
       }
-      const Root_before = (await mt.root()).bigInt();
+      const rootOld = (await mt.root()).bigInt();
 
-      const SK = keypair.sk;
+      const coordinatorSk = keypair.sk;
       let H = BigInt(store.runningMsgHashHex);
       const tallyCounts = store.tallyCounts.map((x) => BigInt(x));
       const leavesMap = { ...store.leaves };
 
-      const EphKey: bigint[][] = [];
-      const Nonce: bigint[] = [];
-      const CT: bigint[][] = [];
-      const Siblings: bigint[][] = [];
-      const PrevChoice: bigint[] = [];
-      const RevotingKeyOldActual: bigint[] = [];
-      const NoAux: bigint[] = [];
-      const AuxKey: bigint[] = [];
-      const AuxValue: bigint[] = [];
-      const IsPrevEmpty: bigint[] = [];
+      const ephPk: bigint[][] = [];
+      const nonces: bigint[] = [];
+      const ciphertext: bigint[][] = [];
+      const siblings: bigint[][] = [];
+      const choicesOld: bigint[] = [];
+      const revotingKeyOld: bigint[] = [];
+      const noAux: bigint[] = [];
+      const auxKey: bigint[] = [];
+      const auxValue: bigint[] = [];
+      const wasLeafEmpty: bigint[] = [];
 
       const LIMBS = 4;
 
@@ -2753,7 +2759,7 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
           for (let j = 0; j < 32; j++) x = (x << 8n) | BigInt(buf[i + j]);
           ctWords.push(x);
         }
-        const shared = mulPointEscalar(R, SK);
+        const shared = mulPointEscalar(R, coordinatorSk);
         const plain = poseidonDecrypt(ctWords, shared, nonce, LIMBS);
         const [
           nu,
@@ -2763,107 +2769,106 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         ] = plain;
 
         const idx = nu & ((1n << BigInt(STATE_DEPTH)) - 1n);
-        const prevLeaf = leavesMap[idx.toString()];
-        let prevChoice = 0n;
-        let prevSec = HASH0;
-        if (prevLeaf) {
-          prevChoice = prevLeaf.choice;
-          prevSec = prevLeaf.revotingKey;
+        const leafOld = leavesMap[idx.toString()];
+        let choiceOld = 0n;
+        let revotingOld = HASH0;
+        if (leafOld) {
+          choiceOld = leafOld.choice;
+          revotingOld = leafOld.revotingKey;
         }
 
-        const voteIsValid = prevSec == revotingKeyOldFromMsg;
+        const voteIsValid = revotingOld == revotingKeyOldFromMsg;
 
         let proof: any;
         if (voteIsValid) {
           const leaf = F.toObject(poseidon([choice, revotingKeyNew]));
           try {
             proof = await mt.addAndGetCircomProof(idx, leaf);
-            IsPrevEmpty.push(1n);
+            wasLeafEmpty.push(1n);
           } catch (e) {
             if (e !== ErrEntryIndexAlreadyExists) throw e;
             proof = await mt.update(idx, leaf);
-            IsPrevEmpty.push(0n);
+            wasLeafEmpty.push(0n);
           }
           leavesMap[idx.toString()] = {
             choice,
             revotingKey: revotingKeyNew,
             hash: leaf,
           };
-          if (prevChoice !== 0n) tallyCounts[Number(prevChoice) - 1] -= 1n;
+          if (choiceOld !== 0n) tallyCounts[Number(choiceOld) - 1] -= 1n;
           if (choice !== 0n) tallyCounts[Number(choice) - 1] += 1n;
         } else {
           proof = await mt.generateCircomVerifierProof(idx, ZERO_HASH);
-          IsPrevEmpty.push(0n);
+          wasLeafEmpty.push(0n);
         }
 
-        NoAux.push(BigInt(proof.isOld0));
-        AuxKey.push(proof.oldKey.bigInt());
-        AuxValue.push(proof.oldValue.bigInt());
-        const siblings = proof.siblings.map((h: any) => h.bigInt());
-        Siblings.push(siblings);
-        PrevChoice.push(prevChoice);
-        RevotingKeyOldActual.push(prevSec);
-        EphKey.push(R);
-        Nonce.push(nonce);
-        CT.push(ctWords);
+        noAux.push(BigInt(proof.isOld0));
+        auxKey.push(proof.oldKey.bigInt());
+        auxValue.push(proof.oldValue.bigInt());
+        siblings.push(proof.siblings.map((h: any) => h.bigInt()));
+        choicesOld.push(choiceOld);
+        revotingKeyOld.push(revotingOld);
+        ephPk.push(R);
+        nonces.push(nonce);
+        ciphertext.push(ctWords);
 
         const msgHash = F.toObject(poseidon([R[0], R[1], nonce, ...ctWords]));
         H = F.toObject(poseidon([H, msgHash]));
       }
 
-      while (EphKey.length < MAX_BATCH) {
-        EphKey.push(EphKey[EphKey.length - 1]);
-        Nonce.push(Nonce[Nonce.length - 1]);
-        CT.push(CT[CT.length - 1]);
-        Siblings.push(Siblings[Siblings.length - 1]);
-        PrevChoice.push(PrevChoice[PrevChoice.length - 1]);
-        IsPrevEmpty.push(IsPrevEmpty[IsPrevEmpty.length - 1]);
-        NoAux.push(NoAux[NoAux.length - 1]);
-        AuxKey.push(AuxKey[AuxKey.length - 1]);
-        AuxValue.push(AuxValue[AuxValue.length - 1]);
-        RevotingKeyOldActual.push(
-          RevotingKeyOldActual[RevotingKeyOldActual.length - 1],
+      while (ephPk.length < MAX_BATCH) {
+        ephPk.push(ephPk[ephPk.length - 1]);
+        nonces.push(nonces[nonces.length - 1]);
+        ciphertext.push(ciphertext[ciphertext.length - 1]);
+        siblings.push(siblings[siblings.length - 1]);
+        choicesOld.push(choicesOld[choicesOld.length - 1]);
+        wasLeafEmpty.push(wasLeafEmpty[wasLeafEmpty.length - 1]);
+        noAux.push(noAux[noAux.length - 1]);
+        auxKey.push(auxKey[auxKey.length - 1]);
+        auxValue.push(auxValue[auxValue.length - 1]);
+        revotingKeyOld.push(
+          revotingKeyOld[revotingKeyOld.length - 1],
         );
       }
 
-      const Root_after = (await mt.root()).bigInt();
-      let saltBefore = BigInt(store.tallySaltHex);
+      const rootNew = (await mt.root()).bigInt();
+      let tallySaltOld = BigInt(store.tallySaltHex);
       const saltU8b = new Uint8Array(8);
       crypto.getRandomValues(saltU8b);
-      let saltAfter = 0n;
-      for (const b of saltU8b) saltAfter = (saltAfter << 8n) | BigInt(b);
+      let tallySaltNew = 0n;
+      for (const b of saltU8b) tallySaltNew = (tallySaltNew << 8n) | BigInt(b);
 
-      const Tally_before = Array(MAX_CHOICES).fill(0n);
+      const tallyOld = Array(MAX_CHOICES).fill(0n);
       for (let i = 0; i < MAX_CHOICES; i++) {
-        Tally_before[i] = BigInt(store.tallyCounts[i] ?? "0");
+        tallyOld[i] = BigInt(store.tallyCounts[i] ?? "0");
       }
-      const Tally_after = Tally_before.slice();
+      const tallyNew = tallyOld.slice();
       for (let i = 0; i < MAX_CHOICES; i++) {
-        Tally_after[i] = tallyCounts[i] ?? 0n;
+        tallyNew[i] = tallyCounts[i] ?? 0n;
       }
 
-      const H_before = BigInt(store.runningMsgHashHex);
+      const cumulativeMsgHashOld = BigInt(store.runningMsgHashHex);
 
-      const tallyAfterHash = F.toObject(poseidon([saltAfter, ...Tally_after]));
+      const tallyHashNew = F.toObject(poseidon([tallySaltNew, ...tallyNew]));
 
       const inputs = {
-        Root_before,
-        H_before,
-        TallySalt_before: saltBefore,
-        TallySalt_after: saltAfter,
-        Tally_before,
-        BatchLen: BigInt(batch.length),
-        SK,
-        EphKey,
-        Nonce,
-        CT,
-        Siblings,
-        PrevChoice,
-        RevotingKeyOldActual,
-        NoAux,
-        AuxKey,
-        AuxValue,
-        IsPrevEmpty,
+        rootOld,
+        cumulativeMsgHashOld,
+        tallySaltOld,
+        tallySaltNew,
+        tallyOld,
+        batchLen: BigInt(batch.length),
+        coordinatorSk,
+        ephPk,
+        nonce: nonces,
+        ciphertext,
+        siblings,
+        choiceOld: choicesOld,
+        revotingKeyOld,
+        noAux,
+        auxKey,
+        auxValue,
+        wasLeafEmpty,
       };
 
       const { proof, publicSignals } = await groth16.fullProve(
@@ -2871,12 +2876,12 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         TALLY_WASM_URL,
         TALLY_ZKEY_URL,
       );
-      const Root_after_pub = BigInt(publicSignals[1]);
-      const H_after_pub = BigInt(publicSignals[2]);
-      const TallyHash_after_pub = BigInt(publicSignals[3]);
-      if (Root_after_pub !== Root_after) throw new Error("Root_after mismatch");
-      if (TallyHash_after_pub !== tallyAfterHash) {
-        throw new Error("TallyHash_after mismatch");
+      const rootNewPub = BigInt(publicSignals[1]);
+      const cumulativeMsgHashNewPub = BigInt(publicSignals[2]);
+      const tallyHashNewPub = BigInt(publicSignals[3]);
+      if (rootNewPub !== rootNew) throw new Error("rootNew mismatch");
+      if (tallyHashNewPub !== tallyHashNew) {
+        throw new Error("tallyHashNew mismatch");
       }
 
       setStage("Sending transaction…");
@@ -2889,9 +2894,9 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
           c: Array.from(serialized.c),
         },
         owner: wallet.publicKey,
-        rootAfter: Array.from(toBytes32(Root_after)),
-        runningMsgHashAfter: Array.from(toBytes32(H_after_pub)),
-        tallyHashAfter: Array.from(toBytes32(TallyHash_after_pub)),
+        rootNew: Array.from(toBytes32(rootNew)),
+        cumulativeMsgHashNew: Array.from(toBytes32(cumulativeMsgHashNewPub)),
+        tallyHashNew: Array.from(toBytes32(tallyHashNewPub)),
       });
       const tx = new Transaction().add(
         cuLimitInstruction([ix]),
@@ -2906,9 +2911,9 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         ...store,
         processedAfterId: lastId,
         processedCount: store.processedCount + batch.length,
-        rootHex: toHex32(Root_after),
-        runningMsgHashHex: toHex32(H_after_pub),
-        tallySaltHex: toHex32(saltAfter),
+        rootHex: toHex32(rootNew),
+        runningMsgHashHex: toHex32(cumulativeMsgHashNewPub),
+        tallySaltHex: toHex32(tallySaltNew),
         tallyCounts: tallyCounts.map((x) => x.toString(10)),
         leaves: leavesMap,
       };

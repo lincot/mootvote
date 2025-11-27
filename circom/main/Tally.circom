@@ -3,4 +3,4 @@ pragma circom 2.2.2;
 
 include "../Tally.circom";
 
-component main {public[Root_before, H_before]} = Tally(64, 8, 6);
+component main {public[rootOld, cumulativeMsgHashOld]} = Tally(64, 8, 6);

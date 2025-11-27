@@ -75,12 +75,12 @@ pub mod anon_vote {
     #[instruction(discriminator = 3u8)]
     pub fn vote(
         ctx: Context<Vote>,
-        eph_key: Point,
+        eph_pk: Point,
         nonce: u64,
         ciphertext: [[u8; 32]; 7],
         proof: CompressedProof,
     ) -> Result<()> {
-        instructions::vote(ctx, eph_key, nonce, ciphertext, proof)
+        instructions::vote(ctx, eph_pk, nonce, ciphertext, proof)
     }
 
     #[instruction(discriminator = 4u8)]
@@ -90,7 +90,7 @@ pub mod anon_vote {
         relayer_nu_hash: [u8; 32],
         msg_hash: [u8; 32],
         relayer_id: [u8; 32],
-        eph_key: Point,
+        eph_pk: Point,
         nonce: u64,
         ciphertext: [[u8; 32]; 7],
         proof: CompressedProof,
@@ -100,7 +100,7 @@ pub mod anon_vote {
             relayer_nu_hash,
             msg_hash,
             relayer_id,
-            eph_key,
+            eph_pk,
             nonce,
             ciphertext,
             proof,
@@ -120,16 +120,16 @@ pub mod anon_vote {
     pub fn tally_batch(
         ctx: Context<TallyBatch>,
         proof: CompressedProof,
-        root_after: [u8; 32],
-        running_msg_hash_after: [u8; 32],
-        tally_hash_after: [u8; 32],
+        root_new: [u8; 32],
+        cumulative_msg_hash_new: [u8; 32],
+        tally_hash_new: [u8; 32],
     ) -> Result<()> {
         instructions::tally_batch(
             ctx,
             proof,
-            root_after,
-            running_msg_hash_after,
-            tally_hash_after,
+            root_new,
+            cumulative_msg_hash_new,
+            tally_hash_new,
         )
     }
 

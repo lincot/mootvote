@@ -54,37 +54,37 @@ pub const STATE_DEPTH: usize = 64;
 #[derive(Serialize)]
 pub struct RelayInputs {
     #[serde(serialize_with = "ser_be32_as_dec")]
-    pub RootQuota_before: [u8; 32],
+    pub rootQuotaOld: [u8; 32],
     #[serde(serialize_with = "ser_be32_as_dec")]
-    pub RootUniq_before: [u8; 32],
+    pub rootUniqOld: [u8; 32],
     #[serde(serialize_with = "ser_be32_as_dec")]
-    pub MsgHash: [u8; 32],
-    pub MsgLimit: u64,
+    pub msgHash: [u8; 32],
+    pub msgLimit: u64,
     #[serde(serialize_with = "ser_be32_as_dec")]
-    pub Nu: [u8; 32],
-    pub PrevCount: u64,
+    pub nu: [u8; 32],
+    pub countOld: u64,
     #[serde(serialize_with = "ser_arr_be32_as_dec")]
-    pub SiblingsQuota: [[u8; 32]; STATE_DEPTH],
+    pub siblingsQuota: [[u8; 32]; STATE_DEPTH],
     #[serde(serialize_with = "ser_bool_as_u8")]
-    pub NoAuxQuota: bool,
+    pub noAuxQuota: bool,
     #[serde(serialize_with = "ser_be32_as_dec")]
-    pub AuxKeyQuota: [u8; 32],
+    pub auxKeyQuota: [u8; 32],
     #[serde(serialize_with = "ser_be32_as_dec")]
-    pub AuxValueQuota: [u8; 32],
+    pub auxValueQuota: [u8; 32],
     #[serde(serialize_with = "ser_arr_be32_as_dec")]
-    pub SiblingsUniq: [[u8; 32]; STATE_DEPTH],
+    pub siblingsUniq: [[u8; 32]; STATE_DEPTH],
     #[serde(serialize_with = "ser_bool_as_u8")]
-    pub NoAuxUniq: bool,
+    pub noAuxUniq: bool,
     #[serde(serialize_with = "ser_be32_as_dec")]
-    pub AuxKeyUniq: [u8; 32],
+    pub auxKeyUniq: [u8; 32],
     #[serde(serialize_with = "ser_be32_as_dec")]
-    pub AuxValueUniq: [u8; 32],
+    pub auxValueUniq: [u8; 32],
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct RelayPublicInputs {
     pub root_state_before: [u8; 32],
-    pub root_state_after: [u8; 32],
+    pub root_state_new: [u8; 32],
     pub nu_hash: [u8; 32],
     pub msg_hash: [u8; 32],
     pub msg_limit: [u8; 32],
@@ -101,7 +101,7 @@ impl From<&PublicInputs> for RelayPublicInputs {
 
         RelayPublicInputs {
             root_state_before: public_inputs[0],
-            root_state_after: public_inputs[1],
+            root_state_new: public_inputs[1],
             nu_hash: public_inputs[2],
             msg_hash: public_inputs[3],
             msg_limit: public_inputs[4],
@@ -109,12 +109,10 @@ impl From<&PublicInputs> for RelayPublicInputs {
     }
 }
 
+const ZKEY_PATH: &str = "../build/Relay/groth16_pkey.zkey";
+
 pub fn prove_relay(inputs: &RelayInputs) -> anyhow::Result<CircomProof> {
-    prove(
-        "build/Relay/groth16_pkey.zkey".into(),
-        Relay_witness,
-        inputs,
-    )
+    prove(ZKEY_PATH.into(), Relay_witness, inputs)
 }
 
 #[cfg(test)]
@@ -211,37 +209,34 @@ mod tests {
         // }
 
         let inputs = RelayInputs {
-            RootQuota_before: [0; 32],
-            RootUniq_before: [0; 32],
-            MsgHash: [
+            rootQuotaOld: [0; 32],
+            rootUniqOld: [0; 32],
+            msgHash: [
                 4, 80, 77, 215, 150, 85, 113, 116, 109, 1, 146, 140, 212, 148, 25, 5, 78, 209, 190,
                 89, 17, 227, 80, 179, 67, 212, 230, 160, 143, 72, 164, 250,
             ],
-            MsgLimit: 3,
-            Nu: [
+            msgLimit: 3,
+            nu: [
                 30, 255, 43, 163, 141, 32, 191, 2, 16, 205, 0, 68, 82, 181, 155, 219, 55, 13, 165,
                 208, 243, 143, 154, 168, 47, 2, 143, 105, 145, 196, 169, 89,
             ],
-            PrevCount: 0,
-            SiblingsQuota: [[0; 32]; 64],
-            NoAuxQuota: true,
-            AuxKeyQuota: [0; 32],
-            AuxValueQuota: [0; 32],
-            SiblingsUniq: [[0; 32]; 64],
-            NoAuxUniq: true,
-            AuxKeyUniq: [0; 32],
-            AuxValueUniq: [0; 32],
+            countOld: 0,
+            siblingsQuota: [[0; 32]; 64],
+            noAuxQuota: true,
+            auxKeyQuota: [0; 32],
+            auxValueQuota: [0; 32],
+            siblingsUniq: [[0; 32]; 64],
+            noAuxUniq: true,
+            auxKeyUniq: [0; 32],
+            auxValueUniq: [0; 32],
         };
         let now = Instant::now();
         let proof = prove_relay(&inputs).unwrap();
         println!("time spent to prove {:?}", now.elapsed());
 
-        assert!(CircomProver::verify(
-            ProofLib::Rapidsnark,
-            proof.clone(),
-            "../build/Relay/groth16_pkey.zkey".into(),
-        )
-        .unwrap());
+        assert!(
+            CircomProver::verify(ProofLib::Rapidsnark, proof.clone(), ZKEY_PATH.into(),).unwrap()
+        );
 
         let public_inputs = RelayPublicInputs::from(&proof.pub_inputs);
         let proof = compress_proof(proof.proof);
@@ -253,7 +248,7 @@ mod tests {
                     32, 152, 245, 251, 158, 35, 158, 171, 60, 234, 195, 242, 123, 129, 228, 129,
                     220, 49, 36, 213, 95, 254, 213, 35, 168, 57, 238, 132, 70, 182, 72, 100
                 ],
-                root_state_after: [
+                root_state_new: [
                     20, 58, 199, 41, 39, 102, 174, 55, 47, 249, 134, 126, 67, 229, 198, 76, 148,
                     217, 156, 200, 138, 102, 207, 194, 150, 0, 49, 30, 49, 155, 94, 171
                 ],
@@ -276,14 +271,14 @@ mod tests {
 
         let RelayPublicInputs {
             root_state_before,
-            root_state_after,
+            root_state_new,
             nu_hash,
             msg_hash,
             msg_limit,
         } = public_inputs;
         let public_inputs = [
             root_state_before,
-            root_state_after,
+            root_state_new,
             nu_hash,
             msg_hash,
             msg_limit,

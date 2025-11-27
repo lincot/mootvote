@@ -18,7 +18,7 @@ pub struct Poll {
     pub n_choices: u8,
     pub coordinator_key: Point,
     pub census_root: [u8; 32],
-    pub running_msg_hash: [u8; 32],
+    pub cumulative_msg_hash: [u8; 32],
     pub voting_start_time: u64,
     pub voting_end_time: u64,
     pub platform_fee: u64,
@@ -78,6 +78,6 @@ pub struct Point {
 #[derive(Debug, InitSpace)]
 pub struct Tally {
     pub tally_hash: [u8; 32],
-    pub running_msg_hash: [u8; 32],
+    pub cumulative_msg_hash: [u8; 32],
     pub root: [u8; 32],
 }

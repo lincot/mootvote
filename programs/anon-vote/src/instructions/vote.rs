@@ -33,7 +33,7 @@ pub struct VoteWithRelayer<'info> {
 
 pub fn vote(
     ctx: Context<Vote>,
-    eph_key: Point,
+    eph_pk: Point,
     nonce: u64,
     ciphertext: [[u8; 32]; 7],
     proof: CompressedProof,
@@ -59,7 +59,7 @@ pub fn vote(
     let relayer_id = [0; 32];
 
     vote_common(
-        eph_key,
+        eph_pk,
         nonce,
         ciphertext,
         proof,
@@ -76,7 +76,7 @@ pub fn vote_with_relayer(
     relayer_nu_hash: [u8; 32],
     msg_hash: [u8; 32],
     relayer_id: [u8; 32],
-    eph_key: Point,
+    eph_pk: Point,
     nonce: u64,
     ciphertext: [[u8; 32]; 7],
     proof: CompressedProof,
@@ -94,7 +94,7 @@ pub fn vote_with_relayer(
     )?;
 
     vote_common(
-        eph_key,
+        eph_pk,
         nonce,
         ciphertext,
         proof,
@@ -107,7 +107,7 @@ pub fn vote_with_relayer(
 
 #[allow(clippy::too_many_arguments)]
 fn vote_common(
-    eph_key: Point,
+    eph_pk: Point,
     nonce: u64,
     ciphertext: [[u8; 32]; 7],
     proof: CompressedProof,
@@ -124,9 +124,9 @@ fn vote_common(
         AnonVoteError::BadTime
     );
 
-    let mut preimage = [&eph_key.x[..]; 10];
-    preimage[0] = &eph_key.x;
-    preimage[1] = &eph_key.y;
+    let mut preimage = [&eph_pk.x[..]; 10];
+    preimage[0] = &eph_pk.x;
+    preimage[1] = &eph_pk.y;
     let nonce_u128 = u64_to_u256_be(nonce);
     preimage[2] = &nonce_u128;
     for (i, c) in ciphertext.iter().enumerate() {
@@ -158,12 +158,12 @@ fn vote_common(
         .map_err(|_| AnonVoteError::InvalidProof)?;
     v.verify().map_err(|_| AnonVoteError::InvalidProof)?;
 
-    poll.running_msg_hash =
-        poseidon(&[&poll.running_msg_hash, &msg_hash]).map_err(|_| AnonVoteError::Poseidon)?;
+    poll.cumulative_msg_hash =
+        poseidon(&[&poll.cumulative_msg_hash, &msg_hash]).map_err(|_| AnonVoteError::Poseidon)?;
 
     emit!(VoteEvent {
         poll_id: poll.id,
-        eph_key,
+        eph_pk,
         nonce,
         ciphertext,
         msg_hash,

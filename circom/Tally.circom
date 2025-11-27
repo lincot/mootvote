@@ -10,43 +10,43 @@ include "poseidon-cipher.circom";
 include "ecdh.circom";
 
 template Tally(DEPTH, MAX_CHOICES, MAX_BATCH) {
-    var LIMBS = 4; // nullifier, choice, RevotingKeyOld, RevotingKeyNew
+    var LIMBS = 4; // nullifier, choice, revotingKeyOld, revotingKeyNew
     var PAD = (LIMBS % 3 == 0) ? LIMBS : LIMBS + (3 - (LIMBS % 3));
     var CT_LEN = PAD + 1;
 
     // ---- Public ----
-    signal input Root_before;
-    signal input H_before;
-    signal output TallyHash_before;
-    signal output Root_after;
-    signal output H_after;
-    signal output TallyHash_after;
+    signal input rootOld;
+    signal input cumulativeMsgHashOld;
+    signal output tallyHashOld;
+    signal output rootNew;
+    signal output cumulativeMsgHashNew;
+    signal output tallyHashNew;
 
     // ---- Private ----
-    signal input BatchLen;
-    signal input Tally_before[MAX_CHOICES];
-    signal input TallySalt_before;
-    signal input TallySalt_after; // should be different for the last batch
-    signal input SK; // Coordinator secret scalar
+    signal input batchLen;
+    signal input tallyOld[MAX_CHOICES];
+    signal input tallySaltOld;
+    signal input tallySaltNew; // should be different for the last batch
+    signal input coordinatorSk; // Coordinator secret scalar
 
-    signal input EphKey[MAX_BATCH][2];
-    signal input Nonce[MAX_BATCH];
-    signal input CT[MAX_BATCH][CT_LEN];
+    signal input ephPk[MAX_BATCH][2];
+    signal input nonce[MAX_BATCH];
+    signal input ciphertext[MAX_BATCH][CT_LEN];
 
-    signal input Siblings[MAX_BATCH][DEPTH];
-    signal input PrevChoice[MAX_BATCH];
-    signal input RevotingKeyOldActual[MAX_BATCH];
+    signal input siblings[MAX_BATCH][DEPTH];
+    signal input choiceOld[MAX_BATCH];
+    signal input revotingKeyOld[MAX_BATCH];
 
-    signal input NoAux[MAX_BATCH];
-    signal input AuxKey[MAX_BATCH];
-    signal input AuxValue[MAX_BATCH];
-    signal input IsPrevEmpty[MAX_BATCH];
+    signal input noAux[MAX_BATCH];
+    signal input auxKey[MAX_BATCH];
+    signal input auxValue[MAX_BATCH];
+    signal input wasLeafEmpty[MAX_BATCH];
 
-    signal leafPrev[MAX_BATCH];
+    signal leafOld[MAX_BATCH];
     signal leafNew[MAX_BATCH];
     signal revotingKeysEqual[MAX_BATCH];
 
-    signal {binary} enabled[MAX_BATCH];
+    signal {binary} isSlotEnabled[MAX_BATCH];
 
     component dec[MAX_BATCH];
 
@@ -59,116 +59,119 @@ template Tally(DEPTH, MAX_CHOICES, MAX_BATCH) {
     signal nuLo[MAX_BATCH];
     signal nuHi[MAX_BATCH];
 
-    signal hashNext[MAX_BATCH];
-
-    signal hashAcc[MAX_BATCH + 1];
+    signal cumulativeMsgHashAcc[MAX_BATCH + 1];
+    signal cumulativeMsgHashNext[MAX_BATCH];
     signal tallyAcc[MAX_BATCH + 1][MAX_CHOICES];
     signal rootAcc[MAX_BATCH + 1];
 
     component msgHasher[MAX_BATCH];
 
-    component isNew[MAX_BATCH][MAX_CHOICES];
-    component isPrev[MAX_BATCH][MAX_CHOICES];
+    component isNewChoice[MAX_BATCH][MAX_CHOICES];
+    component isOldChoice[MAX_BATCH][MAX_CHOICES];
 
     signal indexLessThan[MAX_BATCH];
 
-    component tallyHash_before = PoseidonHasher(1 + MAX_CHOICES);
-    tallyHash_before.inputs[0] <== TallySalt_before;
+    component tallyHashOldHasher = PoseidonHasher(1 + MAX_CHOICES);
+    tallyHashOldHasher.inputs[0] <== tallySaltOld;
     for (var i = 0; i < MAX_CHOICES; i++) {
-        tallyHash_before.inputs[1 + i] <== Tally_before[i];
+        tallyHashOldHasher.inputs[1 + i] <== tallyOld[i];
     }
-    TallyHash_before <== tallyHash_before.out;
+    tallyHashOld <== tallyHashOldHasher.out;
 
-    hashAcc[0]  <== H_before;
-    tallyAcc[0] <== Tally_before;
-    rootAcc[0]  <== Root_before;
+    cumulativeMsgHashAcc[0] <== cumulativeMsgHashOld;
+    tallyAcc[0] <== tallyOld;
+    rootAcc[0] <== rootOld;
 
-    signal isFirstBatch <== IsZero()(H_before);
+    signal isFirstBatch <== IsZero()(cumulativeMsgHashOld);
     for (var i = 0; i < MAX_CHOICES; i++) {
-        isFirstBatch * Tally_before[i] === 0;
+        isFirstBatch * tallyOld[i] === 0;
     }
 
     for (var i = 0; i < MAX_BATCH; i++) {
         msgHasher[i] = PoseidonHasher(3 + CT_LEN);
-        msgHasher[i].inputs[0] <== EphKey[i][0];
-        msgHasher[i].inputs[1] <== EphKey[i][1];
-        msgHasher[i].inputs[2] <== Nonce[i];
+        msgHasher[i].inputs[0] <== ephPk[i][0];
+        msgHasher[i].inputs[1] <== ephPk[i][1];
+        msgHasher[i].inputs[2] <== nonce[i];
         for (var k = 0; k < CT_LEN; k++) {
-            msgHasher[i].inputs[3 + k] <== CT[i][k];
+            msgHasher[i].inputs[3 + k] <== ciphertext[i][k];
         }
 
-        hashNext[i] <== PoseidonHasher(2)([hashAcc[i], msgHasher[i].out]);
+        cumulativeMsgHashNext[i] <== PoseidonHasher(2)([cumulativeMsgHashAcc[i], msgHasher[i].out]);
 
         dec[i] = PoseidonDecrypt(LIMBS);
-        dec[i].key <== Ecdh()(SK, EphKey[i]);
-        dec[i].nonce <== Nonce[i];
-        dec[i].ciphertext <== CT[i];
+        dec[i].key <== Ecdh()(coordinatorSk, ephPk[i]);
+        dec[i].nonce <== nonce[i];
+        dec[i].ciphertext <== ciphertext[i];
         nu[i] <== dec[i].decrypted[0];
         choice[i] <== dec[i].decrypted[1];
         revotingKeyOldFromMsg[i] <== dec[i].decrypted[2];
         revotingKeyNew[i] <== dec[i].decrypted[3];
 
-        leafPrev[i] <== PoseidonHasher(2)([PrevChoice[i], RevotingKeyOldActual[i]]);
+        leafOld[i] <== PoseidonHasher(2)([choiceOld[i], revotingKeyOld[i]]);
         leafNew[i] <== PoseidonHasher(2)([choice[i], revotingKeyNew[i]]);
 
-        indexLessThan[i] <== LessThan(16)([i, BatchLen]);
-        revotingKeysEqual[i] <== IsEqual()([revotingKeyOldFromMsg[i], RevotingKeyOldActual[i]]);
-        enabled[i] <== indexLessThan[i] * revotingKeysEqual[i];
+        indexLessThan[i] <== LessThan(16)([i, batchLen]);
+        revotingKeysEqual[i] <== IsEqual()([revotingKeyOldFromMsg[i], revotingKeyOld[i]]);
+        isSlotEnabled[i] <== indexLessThan[i] * revotingKeysEqual[i];
 
         nuLo[i] <-- nu[i] & ((1 << DEPTH) - 1);
         nuHi[i] <-- nu[i] >> DEPTH;
         idxBits[i] <== Num2Bits(DEPTH)(nuLo[i]); // Num2Bits asserts that lo is DEPTH bits
         nu[i] === nuLo[i] + nuHi[i] * (1 << DEPTH);
 
-        // if leaf was empty, prev choice should be 0
-        IsPrevEmpty[i] * PrevChoice[i] === 0;
+        // if leaf was empty, old choice should be 0
+        wasLeafEmpty[i] * choiceOld[i] === 0;
 
         SMTVerifier(DEPTH)(
-            enabled  <== indexLessThan[i],
-            root     <== rootAcc[i],
-            siblings <== Siblings[i],
-            oldKey   <== AuxKey[i], // not required for inclusion
-            oldValue <== AuxValue[i], // not required for inclusion
-            isOld0   <== NoAux[i], // not required for inclusion
-            key      <== nuLo[i],
-            value    <== leafPrev[i], // not required for non-inclusion
-            fnc      <== IsPrevEmpty[i]
+            enabled <== indexLessThan[i],
+            root <== rootAcc[i],
+            siblings <== siblings[i],
+            oldKey <== auxKey[i], // not required for inclusion
+            oldValue <== auxValue[i], // not required for inclusion
+            isOld0 <== noAux[i], // not required for inclusion
+            key <== nuLo[i],
+            value <== leafOld[i], // not required for non-inclusion
+            fnc <== wasLeafEmpty[i]
         );
 
         rootAcc[i + 1] <== SMTProcessor(DEPTH)(
-            oldRoot  <== rootAcc[i],
-            siblings <== Siblings[i],
-            oldKey   <== AuxKey[i],
-            oldValue <== AuxValue[i],
-            isOld0   <== NoAux[i],
-            newKey   <== nuLo[i],
+            oldRoot <== rootAcc[i],
+            siblings <== siblings[i],
+            oldKey <== auxKey[i],
+            oldValue <== auxValue[i],
+            isOld0 <== noAux[i],
+            newKey <== nuLo[i],
             newValue <== leafNew[i],
             // (1, 0) -> insert, (0, 1) -> update, (0, 0) -> no-op
-            fnc      <== [enabled[i] * IsPrevEmpty[i], enabled[i] * (1 - IsPrevEmpty[i])]
+            fnc <== [
+                isSlotEnabled[i] * wasLeafEmpty[i],
+                isSlotEnabled[i] * (1 - wasLeafEmpty[i])
+            ]
         );
 
         for (var t = 0; t < MAX_CHOICES; t++) {
-          isNew[i][t] = IsEqual();
-          isNew[i][t].in[0] <== choice[i];
-          isNew[i][t].in[1] <== t + 1;
+          isNewChoice[i][t] = IsEqual();
+          isNewChoice[i][t].in[0] <== choice[i];
+          isNewChoice[i][t].in[1] <== t + 1;
 
-          isPrev[i][t] = IsEqual();
-          isPrev[i][t].in[0] <== PrevChoice[i];
-          isPrev[i][t].in[1] <== t + 1;
+          isOldChoice[i][t] = IsEqual();
+          isOldChoice[i][t].in[0] <== choiceOld[i];
+          isOldChoice[i][t].in[1] <== t + 1;
 
-          tallyAcc[i + 1][t] <== tallyAcc[i][t] + enabled[i] * (isNew[i][t].out - isPrev[i][t].out);
+          tallyAcc[i + 1][t] <== tallyAcc[i][t] + isSlotEnabled[i] * (isNewChoice[i][t].out - isOldChoice[i][t].out);
         }
 
-        hashAcc[i + 1] <== hashAcc[i] + indexLessThan[i] * (hashNext[i] - hashAcc[i]);
+        cumulativeMsgHashAcc[i + 1] <== cumulativeMsgHashAcc[i]
+                + indexLessThan[i] * (cumulativeMsgHashNext[i] - cumulativeMsgHashAcc[i]);
     }
 
-    component tallyHash_after = PoseidonHasher(1 + MAX_CHOICES);
-    tallyHash_after.inputs[0] <== TallySalt_after;
+    component tallyHashNewHasher = PoseidonHasher(1 + MAX_CHOICES);
+    tallyHashNewHasher.inputs[0] <== tallySaltNew;
     for (var i = 0; i < MAX_CHOICES; i++) {
-        tallyHash_after.inputs[1 + i] <== tallyAcc[MAX_BATCH][i];
+        tallyHashNewHasher.inputs[1 + i] <== tallyAcc[MAX_BATCH][i];
     }
 
-    H_after <== hashAcc[MAX_BATCH];
-    TallyHash_after <== tallyHash_after.out;
-    Root_after <== rootAcc[MAX_BATCH];
+    cumulativeMsgHashNew <== cumulativeMsgHashAcc[MAX_BATCH];
+    tallyHashNew <== tallyHashNewHasher.out;
+    rootNew <== rootAcc[MAX_BATCH];
 }

@@ -57,5 +57,5 @@ anchor test --skip-local-validator --skip-deploy
 mkdir build/Relay/Relay_cpp/cpp_dat
 cp build/Relay/Relay_cpp/Relay.* build/Relay/Relay_cpp/cpp_dat/
 cd relayer
-cargo test
+cargo build --release
 ```

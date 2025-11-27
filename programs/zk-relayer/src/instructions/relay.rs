@@ -29,7 +29,7 @@ pub fn relay<'info>(
     ctx: Context<'_, '_, '_, 'info, Relay<'info>>,
     state_id: u64,
     proof: CompressedProof,
-    root_state_after: [u8; 32],
+    root_state_new: [u8; 32],
     msg_hash: [u8; 32],
     discriminator: u8,
     nu_hash: [u8; 32],
@@ -44,7 +44,7 @@ pub fn relay<'info>(
         .map_err(|_| ZkRelayerError::ProofDecompressionError)?;
     let public_inputs = [
         relayer_state.root_state,
-        root_state_after,
+        root_state_new,
         nu_hash,
         msg_hash,
         u64_to_u128_be(relayer_state.msg_limit),
@@ -53,7 +53,7 @@ pub fn relay<'info>(
         .map_err(|_| ZkRelayerError::InvalidProof)?;
     v.verify().map_err(|_| ZkRelayerError::InvalidProof)?;
 
-    relayer_state.root_state = root_state_after;
+    relayer_state.root_state = root_state_new;
 
     let mut relayer_id = relayer.key().to_bytes();
     relayer_id[0] &= (1 << 5) - 1;
