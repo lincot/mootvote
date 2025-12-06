@@ -194,6 +194,7 @@ pub async fn list_censuses(
     };
     let items: Vec<CensusListItem> = rows
         .into_iter()
+        .take(q.limit as usize)
         .map(|r| CensusListItem {
             id: r.id,
             title: r.title,

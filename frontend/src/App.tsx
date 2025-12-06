@@ -165,6 +165,14 @@ const Card: React.FC<
   </div>
 );
 
+export const UNLOCK_TO_VIEW = (
+  <div className="max-w-xl mx-auto p-4">
+    <p className="text-sm text-amber-700 dark:text-amber-500">
+      Unlock “ZK Accounts” to view this page.
+    </p>
+  </div>
+);
+
 type BabyJubKeypair = {
   name: string;
   prv: Uint8Array;
@@ -750,7 +758,6 @@ async function keyToLeafHex([x, y]: [bigint, bigint]): Promise<string> {
 const HEX = /^0x?[0-9a-fA-F]*$/;
 
 const schemaBase = z.object({
-  pollId: z.string().regex(/^\d+$/, "Digits only"),
   title: z.string().min(1, "Title is required").max(200, "Keep it short"),
   choices: z.array(z.object({ value: z.string().min(1, "Required") }))
     .min(1, "At least one choice").max(
@@ -829,7 +836,7 @@ const ActiveCoordinatorSummary: React.FC = () => {
   const acc = KR.accounts[KR.active];
   if (!acc) {
     return (
-      <div className="text-xs text-amber-600">
+      <div className="text-xs text-amber-700 dark:text-amber-500">
         No active ZK account. Open “ZK Accounts” and create/select one.
       </div>
     );
@@ -847,8 +854,14 @@ const ActiveCoordinatorSummary: React.FC = () => {
 
 export const btn = (enabled: boolean) =>
   `px-4 py-2 rounded-lg text-white ${
-    enabled ? "bg-black hover:bg-neutral-800" : "bg-gray-400 cursor-not-allowed"
+    enabled
+      ? "dark:bg-neutral-900 hover:bg-neutral-800"
+      : "bg-gray-300 dark:bg-gray-500 cursor-not-allowed"
   }`;
+
+export const INPUT_CN = "w-full rounded border px-3 py-2 " +
+  "border-gray-300 focus:outline-none focus:ring-2 focus:ring-black/20 " +
+  "dark:border-neutral-700 dark:text-neutral-100 placeholder-neutral-400";
 
 const PollCreator: React.FC<{}> = () => {
   const wallet = useWallet();
@@ -877,16 +890,13 @@ const PollCreator: React.FC<{}> = () => {
     mode: "onChange",
     resolver: zodResolver(schema),
     defaultValues: {
-      pollId: String(
-        crypto.getRandomValues(new Uint32Array(1))[0] % 100_000_000_000_000,
-      ),
       title: "",
       choices: [{ value: "" }, { value: "" }],
       coordMode: "active",
       coordX: undefined,
       coordY: undefined,
       start: toLocalInputValue(new Date(Date.now() + 60_000)),
-      end: toLocalInputValue(new Date(Date.now() + 3_600_000)),
+      end: toLocalInputValue(new Date(Date.now() + 3_660_000)),
       feeLamports: "0",
       censusBytes: undefined,
       censusCount: 0,
@@ -935,7 +945,6 @@ const PollCreator: React.FC<{}> = () => {
 
       setStage("creating poll");
 
-      const id = BigInt(data.pollId);
       const start = localInputToUnixSeconds(data.start);
       const end = localInputToUnixSeconds(data.end);
       const fee = BigInt(data.feeLamports);
@@ -958,7 +967,7 @@ const PollCreator: React.FC<{}> = () => {
 
       const ix: InstructionWithCu = await createPoll({
         payer: wallet.publicKey!,
-        id,
+        id: randomScalar(1n << 32n),
         censusRoot: Array.from(hexToBytes32(data.censusRootHex)),
         coordinatorKey,
         nChoices: cleanedChoices.length,
@@ -1027,32 +1036,28 @@ const PollCreator: React.FC<{}> = () => {
     }
   };
 
-  const inputCN = "w-full rounded border px-3 py-2 " +
-    "border-gray-300 focus:outline-none focus:ring-2 focus:ring-black/20 " +
-    "dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 placeholder-neutral-400";
-
   const disabled = isSubmitting || !isValid || !wallet.publicKey ||
     (stage !== "idle" && stage !== "done" && stage !== "error") ||
     (coordMode === "active" && !KR.accounts[KR.active]);
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="max-w-3xl mx-auto p-4 rounded-2xl border bg-white border-gray-200 dark:bg-neutral-900 dark:border-neutral-800"
+      className="max-w-xl mx-auto p-4"
     >
       <h2 className="text-xl font-semibold mb-3">Create Poll</h2>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="flex-col gap-4">
         <div className="space-y-3">
-          <label className="block text-sm font-medium">Poll ID</label>
-          <input className={inputCN} {...register("pollId")} />
-          {errors.pollId && (
-            <p className="text-red-500 text-xs">{errors.pollId.message}</p>
+          <label className="block text-sm font-medium">Poll title</label>
+          <input className={INPUT_CN} {...register("title")} />
+          {errors.title && (
+            <p className="text-red-500 text-xs">{errors.title.message}</p>
           )}
 
           <label className="block text-sm font-medium">Start</label>
           <input
             type="datetime-local"
-            className={inputCN}
+            className={INPUT_CN}
             {...register("start")}
           />
           {errors.start && (
@@ -1062,7 +1067,7 @@ const PollCreator: React.FC<{}> = () => {
           <label className="block text-sm font-medium">End</label>
           <input
             type="datetime-local"
-            className={inputCN}
+            className={INPUT_CN}
             {...register("end")}
           />
           {errors.end && (
@@ -1091,7 +1096,7 @@ const PollCreator: React.FC<{}> = () => {
               <div>
                 <input
                   placeholder="0x… (X)"
-                  className="w-full rounded border px-3 py-2 font-mono mb-2"
+                  className={INPUT_CN}
                   {...register("coordX")}
                 />
                 {errors.coordX && (
@@ -1101,7 +1106,7 @@ const PollCreator: React.FC<{}> = () => {
                 )}
                 <input
                   placeholder="0x… (Y)"
-                  className="w-full rounded border px-3 py-2 font-mono"
+                  className={INPUT_CN}
                   {...register("coordY")}
                 />
                 {errors.coordY && (
@@ -1119,7 +1124,7 @@ const PollCreator: React.FC<{}> = () => {
             </label>
             <input
               placeholder="e.g. 200000"
-              className={inputCN}
+              className={INPUT_CN}
               {...register("feeLamports")}
             />
             {errors.feeLamports && (
@@ -1128,14 +1133,6 @@ const PollCreator: React.FC<{}> = () => {
               </p>
             )}
           </div>
-        </div>
-
-        <div className="space-y-3">
-          <label className="block text-sm font-medium">Poll title</label>
-          <input className={inputCN} {...register("title")} />
-          {errors.title && (
-            <p className="text-red-500 text-xs">{errors.title.message}</p>
-          )}
 
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">
@@ -1155,13 +1152,13 @@ const PollCreator: React.FC<{}> = () => {
             {fields.map((f, i) => (
               <div key={f.id} className="flex gap-2">
                 <input
-                  className={inputCN + " flex-1"}
+                  className={INPUT_CN + " flex-1"}
                   {...register(`choices.${i}.value` as const)}
                   placeholder={`Choice #${i + 1}`}
                 />
                 <button
                   type="button"
-                  className="px-2 rounded border dark:border-neutral-700"
+                  className="text-sm underline"
                   onClick={() => remove(i)}
                   disabled={fields.length <= 1}
                 >
@@ -1201,7 +1198,7 @@ const PollCreator: React.FC<{}> = () => {
                       shouldValidate: true,
                     })}
                 />
-                Upload .bin
+                Upload file
               </label>
             </div>
             {errors.censusSource && (
@@ -1214,12 +1211,13 @@ const PollCreator: React.FC<{}> = () => {
           {(control._formValues as FormValues).censusSource === "upload" && (
             <div className="mt-3">
               <div className="flex gap-2">
-                <label className="block text-sm font-medium">
+                <label className="mb-2 block text-sm font-medium">
                   Census (.bin)
                 </label>
 
                 <Help
                   title="What is census.bin?"
+                  below={false}
                   content={
                     <div>
                       <p className="mb-1 font-medium">Census file format</p>
@@ -1269,7 +1267,7 @@ const PollCreator: React.FC<{}> = () => {
 
           {(control._formValues as FormValues).censusSource === "existing" && (
             <div className="mt-3 space-y-2">
-              <div className="flex items-start gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setOpenChoose(true)}
@@ -1342,8 +1340,8 @@ const ComputedCensusHints = ({ control }: { control: any }) => {
   );
 };
 
-const Help: React.FC<{ title: string; content: any }> = (
-  { title, content },
+const Help: React.FC<{ title: string; content: any; below: boolean }> = (
+  { title, content, below },
 ) => {
   const [open, setOpen] = useState(false);
   return (
@@ -1357,7 +1355,11 @@ const Help: React.FC<{ title: string; content: any }> = (
         ?
       </button>
       {open && (
-        <div className="absolute z-10 mt-2 w-80 p-3 text-xs rounded-lg border bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 shadow">
+        <div
+          className={`absolute z-10 w-80 p-3 text-xs rounded-lg border bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 shadow ${
+            below ? "mt-2" : "bottom-full mb-2 left-1/2 -translate-x-1/2"
+          }`}
+        >
           {content}
         </div>
       )}
@@ -1403,7 +1405,10 @@ const KeyringPanel: React.FC<{ open: boolean }> = ({ open }) => {
 
   if (KR.locked) {
     return (
-      <Card title={creating ? "Create ZK keyring" : "Unlock ZK keyring"}>
+      <div>
+        <h2 className="text-lg font-semibold mb-3">
+          {creating ? "Create ZK keyring" : "Unlock ZK keyring"}
+        </h2>
         <div className="space-y-2">
           <input
             type="password"
@@ -1445,12 +1450,12 @@ const KeyringPanel: React.FC<{ open: boolean }> = ({ open }) => {
               : "Keychain is encrypted and only stored in your browser."}
           </p>
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card title="BabyJub accounts">
+    <div>
       <div className="flex gap-2 items-end">
         <div className="flex-1">
           <label className="block text-sm font-medium">Label</label>
@@ -1645,7 +1650,7 @@ const KeyringPanel: React.FC<{ open: boolean }> = ({ open }) => {
             </div>
           )}
       </div>
-    </Card>
+    </div>
   );
 };
 
@@ -1735,7 +1740,8 @@ const ResultsBars: React.FC<{
   }, [choices, tally]);
 
   return (
-    <Card title={title}>
+    <div className="mt-3">
+      <h2 className="text-lg font-semibold mb-3">{title}</h2>
       <div className="space-y-3">
         {data.pairs.map((p) => {
           const pct = data.total === 0
@@ -1763,7 +1769,7 @@ const ResultsBars: React.FC<{
           Total votes: <span className="tabular-nums">{data.total}</span>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };
 
@@ -1922,56 +1928,47 @@ const MyVoterPolls: React.FC = () => {
     setBefore(a);
   };
 
+  if (KR.locked) return UNLOCK_TO_VIEW;
+
   return (
-    <Card title="Vote">
-      {KR.locked
-        ? (
-          <p className="text-sm text-amber-600">
-            Unlock your ZK keyring (see “ZK Accounts”) to view polls for your
-            active key.
-          </p>
-        )
-        : (
-          <>
-            {!page && loading && (
-              <div className="text-sm opacity-70">Loading…</div>
-            )}
-            {!page && err && <div className="text-sm text-red-600">{err}</div>}
-            {page && page.items.length === 0 && (
-              <div className="text-sm opacity-70">No polls found.</div>
-            )}
-            <div className="space-y-2">
-              {page?.items.map((p) => <PollRow key={p.poll_id} p={p} />)}
-            </div>
-            <div className="mt-3 flex gap-2 justify-end">
-              <button
-                className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-                  loading || stack.length === 0
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                }`}
-                onClick={prev}
-                disabled={loading || stack.length === 0}
-                aria-label="Previous page"
-              >
-                ‹
-              </button>
-              <button
-                className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-                  (loading || !page?.next_before)
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                }`}
-                onClick={next}
-                disabled={loading || !page?.next_before}
-                aria-label="Next page"
-              >
-                ›
-              </button>
-            </div>
-          </>
+    <div className="max-w-xl mx-auto p-4">
+      <>
+        {!page && loading && <div className="text-sm opacity-70">Loading…</div>}
+        {!page && err && <div className="text-sm text-red-600">{err}</div>}
+        {page && page.items.length === 0 && (
+          <div className="text-sm opacity-70">No polls found.</div>
         )}
-    </Card>
+        <div className="space-y-2">
+          {page?.items.map((p) => <PollRow key={p.poll_id} p={p} />)}
+        </div>
+        <div className="mt-3 flex gap-2 justify-end">
+          <button
+            className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
+              loading || stack.length === 0
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            }`}
+            onClick={prev}
+            disabled={loading || stack.length === 0}
+            aria-label="Previous page"
+          >
+            ‹
+          </button>
+          <button
+            className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
+              (loading || !page?.next_before)
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            }`}
+            onClick={next}
+            disabled={loading || !page?.next_before}
+            aria-label="Next page"
+          >
+            ›
+          </button>
+        </div>
+      </>
+    </div>
   );
 };
 
@@ -2027,58 +2024,49 @@ const MyCoordinatorPolls: React.FC = () => {
     setBefore(a);
   };
 
+  if (KR.locked) return UNLOCK_TO_VIEW;
+
   return (
-    <Card title="Tally">
-      {KR.locked
-        ? (
-          <p className="text-sm text-amber-600">
-            Unlock your ZK keyring (see “ZK Accounts”) to view polls coordinated
-            by your active key.
-          </p>
-        )
-        : (
-          <>
-            {!page && loading && (
-              <div className="text-sm opacity-70">Loading…</div>
-            )}
-            {!page && err && <div className="text-sm text-red-600">{err}</div>}
-            {page && page.items.length === 0 && (
-              <div className="text-sm opacity-70">No polls found.</div>
-            )}
-            <div className="space-y-2">
-              {page?.items.map((p) => (
-                <PollRow key={p.poll_id} p={p} to={`/tally/${p.poll_id}`} />
-              ))}
-            </div>
-            <div className="mt-3 flex gap-2 justify-end">
-              <button
-                className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-                  stack.length === 0 || loading
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                }`}
-                onClick={prev}
-                disabled={loading || stack.length === 0}
-                aria-label="Previous page"
-              >
-                ‹
-              </button>
-              <button
-                className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-                  (!page || !page?.next_before)
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                }`}
-                onClick={next}
-                disabled={loading || !page || !page?.next_before}
-                aria-label="Next page"
-              >
-                ›
-              </button>
-            </div>
-          </>
+    <div className="max-w-xl mx-auto p-4">
+      <>
+        {!page && loading && <div className="text-sm opacity-70">Loading…</div>}
+        {!page && err && <div className="text-sm text-red-600">{err}</div>}
+        {page && page.items.length === 0 && (
+          <div className="text-sm opacity-70">No polls found.</div>
         )}
-    </Card>
+        <div className="space-y-2">
+          {page?.items.map((p) => (
+            <PollRow key={p.poll_id} p={p} to={`/tally/${p.poll_id}`} />
+          ))}
+        </div>
+        <div className="mt-3 flex gap-2 justify-end">
+          <button
+            className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
+              stack.length === 0 || loading
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            }`}
+            onClick={prev}
+            disabled={loading || stack.length === 0}
+            aria-label="Previous page"
+          >
+            ‹
+          </button>
+          <button
+            className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
+              (!page || !page?.next_before)
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            }`}
+            onClick={next}
+            disabled={loading || !page || !page?.next_before}
+            aria-label="Next page"
+          >
+            ›
+          </button>
+        </div>
+      </>
+    </div>
   );
 };
 
@@ -2477,17 +2465,11 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
   const active = now >= poll.voting_start_time && now <= poll.voting_end_time;
 
   if (KR.locked) {
-    return (
-      <Card title="Vote">
-        <p className="text-sm text-amber-600">
-          Unlock your ZK keyring to view this poll and vote.
-        </p>
-      </Card>
-    );
+    return UNLOCK_TO_VIEW;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-xl mx-auto p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold truncate">{title}</h2>
@@ -2534,13 +2516,8 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
             {stage && <span className="text-sm text-purple-600">{stage}</span>}
           </div>
           {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
-          {KR.locked && (
-            <div className="mt-2 text-xs text-amber-600">
-              Unlock your ZK keyring in “ZK Accounts”.
-            </div>
-          )}
           {!useRelayer && !wallet.publicKey && (
-            <div className="mt-2 text-xs text-amber-600">
+            <div className="mt-2 text-xs text-amber-700 dark:text-amber-500">
               Connect your Solana wallet.
             </div>
           )}
@@ -2556,6 +2533,7 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
               Use relayer (recommended)
               <Help
                 title={"When to use relayer?"}
+                below={true}
                 content={
                   <div>
                     <p>
@@ -2573,12 +2551,6 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
                 }
               />
             </label>
-
-            {!RELAYER_URL && useRelayer && (
-              <span className="ml-3 text-xs text-amber-600">
-                Relayer URL is not configured
-              </span>
-            )}
           </div>
         </Card>
       )}
@@ -3071,22 +3043,13 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
     await refreshRemaining();
   }, [store, refreshRemaining]);
 
-  if (KR.locked) {
-    return (
-      <Card title="Tally">
-        <p className="text-sm text-amber-600">
-          Unlock your ZK keyring to view this poll and tally.
-        </p>
-      </Card>
-    );
-  }
-
+  if (KR.locked) return UNLOCK_TO_VIEW;
   if (loading) return <div className="p-4">Loading…</div>;
   if (!poll || !desc) return <div className="p-4">No poll.</div>;
 
   const effectiveTally = clientTally ?? poll?.tally ?? null;
   return (
-    <div className="space-y-4">
+    <div className="max-w-xl mx-auto p-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">{desc.title}</h2>
@@ -3103,7 +3066,7 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         />
       )}
       {!Array.isArray(effectiveTally) && (
-        <Card className="mt-4">
+        <div className="mt-4">
           {store && (
             <div className="mt-4">
               {(() => {
@@ -3210,7 +3173,7 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
               </>
             )}
           </div>
-        </Card>
+        </div>
       )}
     </div>
   );
@@ -3254,10 +3217,10 @@ const Layout: React.FC<{ setShowAccounts: (showAccounts: boolean) => void }> = (
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-zinc-950 dark:to-zinc-900 text-gray-900 dark:text-zinc-100">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-stone-900 dark:to-stone-800 text-gray-900 dark:text-zinc-100">
       <header
         ref={headerRef}
-        className="sticky top-0 z-40 border-b border-gray-200/60 dark:border-zinc-800/60 bg-white/70 dark:bg-zinc-950/70 backdrop-blur"
+        className="sticky top-0 z-40 border-b border-gray-200/60 dark:border-zinc-800/60 bg-white/70 dark:bg-zinc-800/70 backdrop-blur"
       >
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -3414,7 +3377,7 @@ const Layout: React.FC<{ setShowAccounts: (showAccounts: boolean) => void }> = (
           </div>
         )}
 
-        <main className="flex-1 min-w-0 py-4" id="content-root">
+        <main className="flex-1 min-w-0 py-4">
           <Outlet />
           <div
             id="content-overlay-root"

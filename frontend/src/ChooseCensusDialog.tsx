@@ -86,7 +86,7 @@ export function ChooseCensusDialog({
   }, []);
 
   useEffect(() => {
-    const content = document.getElementById("content-root");
+    const content = document.documentElement;
     if (!content) return;
     content.classList.toggle("overflow-hidden", open);
     return () => {
@@ -108,7 +108,7 @@ export function ChooseCensusDialog({
 
   return createPortal(
     <div
-      className="absolute inset-0 flex items-center justify-center pointer-events-auto"
+      className="fixed inset-0 flex items-center justify-center pointer-events-auto"
       role="dialog"
       aria-modal="true"
       onClick={onClose} // click outside closes

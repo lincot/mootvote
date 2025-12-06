@@ -3,7 +3,13 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { makeAuthSig } from "../auth.ts";
-import { btn, CENSUS_URL, useKeyringCtx } from "../App.tsx";
+import {
+  btn,
+  CENSUS_URL,
+  INPUT_CN,
+  UNLOCK_TO_VIEW,
+  useKeyringCtx,
+} from "../App.tsx";
 import { useNavigate } from "react-router";
 
 const schema = z.object({
@@ -78,21 +84,17 @@ export default function CensusCreatePage() {
 
   const disabled = !isValid || !canSubmit || isSubmitting;
 
-  return (
-    <div className="max-w-3xl mx-auto p-4">
-      <h2 className="text-xl font-semibold mb-3">Create Census</h2>
+  if (KR.locked) return UNLOCK_TO_VIEW;
 
-      {KR.locked && (
-        <div className="text-sm mb-3 text-amber-700 dark:text-amber-400">
-          Unlock “ZK Accounts” to continue.
-        </div>
-      )}
+  return (
+    <div className="max-w-xl mx-auto p-4">
+      <h2 className="text-xl font-semibold mb-3">Create Census</h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="block text-sm font-medium">Title</label>
           <input
-            className="w-full rounded border px-3 py-2"
+            className={INPUT_CN}
             {...register("title")}
           />
           {errors.title && (
@@ -105,7 +107,7 @@ export default function CensusCreatePage() {
             Description (optional)
           </label>
           <textarea
-            className="w-full rounded border px-3 py-2"
+            className={INPUT_CN}
             rows={3}
             {...register("description")}
           />
@@ -129,13 +131,13 @@ export default function CensusCreatePage() {
             {fields.map((f, i) => (
               <div key={f.id} className="flex gap-2">
                 <input
-                  className="flex-1 rounded border px-3 py-2"
+                  className={INPUT_CN}
                   placeholder={`Name #${i + 1}`}
                   {...register(`members.${i}.name`)}
                 />
                 <button
                   type="button"
-                  className="px-2 rounded border"
+                  className="text-sm underline"
                   onClick={() => remove(i)}
                   disabled={fields.length <= 1}
                 >

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { makeAuthSig } from "../auth.ts";
-import { CENSUS_URL, useKeyringCtx } from "../App.tsx";
+import { CENSUS_URL, UNLOCK_TO_VIEW, useKeyringCtx } from "../App.tsx";
 
 type MemberRow = {
   id: number;
@@ -71,13 +71,7 @@ export default function CensusDetailPage() {
     load(null);
   }, [KR]);
 
-  if (KR.locked) {
-    return (
-      <div className="text-sm mb-2 text-amber-700 dark:text-amber-400">
-        Unlock “ZK Accounts” to see full status and manage.
-      </div>
-    );
-  }
+  if (KR.locked) return UNLOCK_TO_VIEW;
 
   const next = () => {
     const after = page!.items[page!.items.length - 1].id;
@@ -159,7 +153,7 @@ export default function CensusDetailPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-xl mx-auto p-4">
       {loading && <div className="text-sm opacity-70 mt-2">Loading…</div>}
       {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
       {!loading && page && (

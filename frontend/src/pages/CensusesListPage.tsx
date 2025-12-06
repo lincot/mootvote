@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { CENSUS_URL, useKeyringCtx } from "../App.tsx";
+import { btn, CENSUS_URL, UNLOCK_TO_VIEW, useKeyringCtx } from "../App.tsx";
 import { makeAuthSig } from "../auth.ts";
 
-const CENSUS_PAGE_LIMIT = 2;
+const CENSUS_PAGE_LIMIT = 20;
 
 type CensusListItem = {
   id: number;
@@ -70,11 +70,7 @@ export default function CensusesListPage() {
   }, [KR.locked, KR.active, load]);
 
   if (KR.locked) {
-    return (
-      <div className="p-4 text-sm text-amber-700 dark:text-amber-400">
-        Unlock “ZK Accounts” to view your censuses.
-      </div>
-    );
+    return UNLOCK_TO_VIEW;
   }
 
   const onNext = () => {
@@ -93,13 +89,13 @@ export default function CensusesListPage() {
   const goCreate = () => navigate("/census/new");
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-xl mx-auto p-4">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-xl font-semibold">Censuses</h2>
         <button
           type="button"
           onClick={goCreate}
-          className="rounded-lg px-3 py-2 text-white bg-black hover:bg-gray-800"
+          className={btn(true)}
         >
           Create new census
         </button>

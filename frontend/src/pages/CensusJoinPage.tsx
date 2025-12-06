@@ -75,7 +75,7 @@ export default function CensusJoinPage() {
               <span className="font-medium">{pf.name}</span>.
             </div>
             {KR.locked && (
-              <div className="text-sm text-amber-700">
+              <div className="text-sm text-amber-700 dark:text-amber-500">
                 Unlock “ZK Accounts” and select your account to bind.
               </div>
             )}
