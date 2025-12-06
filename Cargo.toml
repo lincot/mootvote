@@ -3,6 +3,7 @@ members = [
     "programs/*",
     "indexer",
     "relayer",
+    "census-service",
     "smt-circom",
 ]
 resolver = "2"

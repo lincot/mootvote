@@ -1,0 +1,5 @@
+addrs: "0.0.0.0:8445"
+
+ssl:
+    key: "key.pem"
+    cert: "cert.pem"

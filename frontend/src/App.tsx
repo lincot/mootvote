@@ -85,6 +85,12 @@ import {
 } from "@iden3/js-merkletree";
 import "./index.css";
 import { bytesToHex } from "@noble/hashes/utils";
+import CensusCreatePage from "./pages/CensusCreatePage";
+import CensusesListPage from "./pages/CensusesListPage";
+import CensusDetailPage from "./pages/CensusDetailPage";
+import CensusJoinPage from "./pages/CensusJoinPage";
+import { makeAuthSig } from "./auth.ts";
+import { ChooseCensusDialog } from "./ChooseCensusDialog.tsx";
 
 const MAX_CHOICES = 8;
 const CENSUS_DEPTH = 40;
@@ -97,6 +103,7 @@ export const CLUSTER = (import.meta.env.VITE_CLUSTER) as
 export const RPC_URL = import.meta.env.VITE_RPC_URL as string;
 export const INDEXER_URL = import.meta.env.VITE_INDEXER_URL as string;
 export const RELAYER_URL = import.meta.env.VITE_RELAYER_URL as string;
+export const CENSUS_URL = import.meta.env.VITE_CENSUS_URL as string;
 export const OTHER_ENV_URL = import.meta.env.VITE_OTHER_ENV_URL as
   | string
   | undefined;
@@ -713,22 +720,22 @@ async function parseUploadedCensus(buf: Uint8Array): Promise<ParsedCensus> {
 
 let poseidonP: Poseidon | null = null;
 
-async function getPoseidon(): Promise<Poseidon> {
+export async function getPoseidon(): Promise<Poseidon> {
   if (!poseidonP) poseidonP = await buildPoseidon();
   return poseidonP;
 }
 
 let babyjubP: BabyJub | null = null;
 
-async function getBabyjub(): Promise<BabyJub> {
+export async function getBabyjub(): Promise<BabyJub> {
   if (!babyjubP) babyjubP = await buildBabyjub();
   return babyjubP;
 }
 
 let eddsaP: Eddsa | null = null;
 
-async function getEddsa(): Promise<Eddsa> {
-  if (!eddsaP) eddsaP = await buildEddsa();
+export async function getEddsa(): Promise<Eddsa> {
+  if (eddsaP === null) eddsaP = await buildEddsa();
   return eddsaP;
 }
 
@@ -756,9 +763,12 @@ const schemaBase = z.object({
   start: z.string().min(1, "Start required"),
   end: z.string().min(1, "End required"),
   feeLamports: z.string().regex(/^\d+$/, "Integer lamports"),
-  censusBytes: z.instanceof(Uint8Array, { message: "Upload census .bin" }),
-  censusCount: z.number().int().positive("Census empty"),
-  censusRootHex: z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid root"),
+  censusSource: z.enum(["upload", "existing"]),
+  censusBytes: z.instanceof(Uint8Array),
+  censusCount: z.number().int().positive("Census empty").optional(),
+  censusRootHex: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+  selectedCensusId: z.number().int().positive().optional(),
+  selectedCensusTitle: z.string().optional(),
 }).superRefine((d, ctx) => {
   const startMs = Date.parse(d.start);
   const endMs = Date.parse(d.end);
@@ -835,7 +845,7 @@ const ActiveCoordinatorSummary: React.FC = () => {
   );
 };
 
-const btn = (enabled: boolean) =>
+export const btn = (enabled: boolean) =>
   `px-4 py-2 rounded-lg text-white ${
     enabled ? "bg-black hover:bg-neutral-800" : "bg-gray-400 cursor-not-allowed"
   }`;
@@ -881,6 +891,7 @@ const PollCreator: React.FC<{}> = () => {
       censusBytes: undefined,
       censusCount: 0,
       censusRootHex: "0x" + "0".repeat(64),
+      censusSource: "existing",
     },
   });
   const coordMode = watch("coordMode");
@@ -988,6 +999,32 @@ const PollCreator: React.FC<{}> = () => {
     /// XXX: Otherwise it won't show date errors until census is uploaded
     // and date is changed again...
     await trigger(["start", "end"]);
+  };
+
+  const [openChoose, setOpenChoose] = useState(false);
+  const handlePickExisting = async (picked: { id: number; title: string }) => {
+    try {
+      const acct = KR.accounts[KR.active];
+      if (!acct) throw new Error("Unlock ZK Accounts");
+      const sig = await makeAuthSig(acct.prv, acct.pub);
+      const r = await fetch(`${CENSUS_URL}/census/${picked.id}/export`, {
+        method: "GET",
+        headers: { ...sig },
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const buf = new Uint8Array(await r.arrayBuffer());
+      const { leaves } = await parseUploadedCensus(buf);
+      const root = await getMerkleRoot(CENSUS_DEPTH, leaves);
+      setValue("selectedCensusId", picked.id, { shouldValidate: true });
+      setValue("selectedCensusTitle", picked.title, { shouldValidate: true });
+      setValue("censusBytes", buf, { shouldValidate: true });
+      setValue("censusCount", leaves.length, { shouldValidate: true });
+      setValue("censusRootHex", toHex32(root), { shouldValidate: true });
+      setOpenChoose(false);
+    } catch (e: any) {
+      console.error(e);
+      setErrMsg(e?.message || String(e));
+    }
   };
 
   const inputCN = "w-full rounded border px-3 py-2 " +
@@ -1139,61 +1176,129 @@ const PollCreator: React.FC<{}> = () => {
             )}
           </div>
 
-          <div className="mt-3">
-            <div className="flex items-center gap-2">
-              <label className="block text-sm font-medium">Census</label>
-              <Help
-                title="What is census.bin?"
-                content={
-                  <div>
-                    <p className="mb-1 font-medium">Census file format</p>
-                    <ul className="list-disc ml-4 space-y-1">
-                      <li>Binary file, no header.</li>
-                      <li>
-                        Concatenation of leaves, one per voter, each exactly
-                        {" "}
-                        <b>32 bytes</b> (big-endian).
-                      </li>
-                      <li>
-                        Each leaf is <code>Poseidon(pubX, pubY)</code>{" "}
-                        over BabyJub, encoded as a field element (BE).
-                      </li>
-                      <li>No padding; file size must be divisible by 32.</li>
-                    </ul>
-                  </div>
-                }
-              />
+          <fieldset className="space-y-2">
+            <label className="block text-sm font-medium">Census source</label>
+            <div className="flex items-center gap-4 text-sm">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  value="existing"
+                  {...register("censusSource")}
+                  onChange={() =>
+                    setValue("censusSource", "existing", {
+                      shouldValidate: true,
+                    })}
+                />
+                Use existing census
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  value="upload"
+                  {...register("censusSource")}
+                  onChange={() =>
+                    setValue("censusSource", "upload", {
+                      shouldValidate: true,
+                    })}
+                />
+                Upload .bin
+              </label>
             </div>
-            <input
-              type="file"
-              accept=".bin"
-              onChange={(e) =>
-                e.target.files && onCensusFile(e.target.files[0])}
-              className={cn(
-                "block w-full rounded border border-gray-300 dark:border-neutral-700",
-                "bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100",
-                "file:mr-4 file:rounded-lg file:border file:border-gray-300 dark:file:border-neutral-700",
-                "file:bg-white dark:file:bg-neutral-800 file:px-3 file:py-2 file:text-sm",
-                "file:font-medium file:text-neutral-900 dark:file:text-neutral-100",
+            {errors.censusSource && (
+              <p className="text-red-600 text-xs">
+                {errors.censusSource.message as string}
+              </p>
+            )}
+          </fieldset>
+
+          {(control._formValues as FormValues).censusSource === "upload" && (
+            <div className="mt-3">
+              <div className="flex gap-2">
+                <label className="block text-sm font-medium">
+                  Census (.bin)
+                </label>
+
+                <Help
+                  title="What is census.bin?"
+                  content={
+                    <div>
+                      <p className="mb-1 font-medium">Census file format</p>
+                      <ul className="list-disc ml-4 space-y-1">
+                        <li>Binary file, no header.</li>
+                        <li>
+                          Concatenation of leaves, one per voter, each exactly
+                          {" "}
+                          <b>32 bytes</b> (big-endian).
+                        </li>
+                        <li>
+                          Each leaf is <code>Poseidon(pubX, pubY)</code>{" "}
+                          over BabyJub, encoded as a field element (BE).
+                        </li>
+                        <li>No padding; file size must be divisible by 32.</li>
+                      </ul>
+                    </div>
+                  }
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  className="rounded p-1 border-gray-300 dark:bg-neutral-800"
+                  type="file"
+                  accept=".bin"
+                  onChange={(e) =>
+                    e.target.files && onCensusFile(e.target.files[0])}
+                />
+              </div>
+              {errors.censusBytes && (
+                <p className="text-red-600 text-xs">
+                  {errors.censusBytes.message}
+                </p>
               )}
-            />
-            {errors.censusBytes && (
-              <p className="text-red-500 text-xs">
-                {errors.censusBytes.message}
-              </p>
-            )}
-            {errors.censusCount && (
-              <p className="text-red-500 text-xs">
-                {errors.censusCount.message}
-              </p>
-            )}
-            {errors.censusRootHex && (
-              <p className="text-red-500 text-xs">
-                {errors.censusRootHex.message}
-              </p>
-            )}
-            <ComputedCensusHints control={control} />
-          </div>
+              {errors.censusCount && (
+                <p className="text-red-600 text-xs">
+                  {errors.censusCount.message}
+                </p>
+              )}
+              {errors.censusRootHex && (
+                <p className="text-red-600 text-xs">
+                  {errors.censusRootHex.message}
+                </p>
+              )}
+            </div>
+          )}
+
+          {(control._formValues as FormValues).censusSource === "existing" && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-start gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOpenChoose(true)}
+                  className="shrink-0 rounded-lg px-3 py-2 border dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  Choose census…
+                </button>
+                {(control._formValues as FormValues).selectedCensusId && (
+                  <div className="text-sm">
+                    Chosen:{" "}
+                    <span className="font-medium">
+                      {(control._formValues as FormValues).selectedCensusTitle}
+                      {" "}
+                      (#{(control._formValues as FormValues).selectedCensusId})
+                    </span>
+                  </div>
+                )}
+              </div>
+              {errors.censusRootHex && (
+                <p className="text-red-600 text-xs">
+                  {errors.censusRootHex.message}
+                </p>
+              )}
+            </div>
+          )}
+
+          {(control._formValues as FormValues).censusCount
+            ? <ComputedCensusHints control={control} />
+            : null}
         </div>
       </div>
 
@@ -1213,6 +1318,14 @@ const PollCreator: React.FC<{}> = () => {
         <div className="mt-3 text-sm text-red-500 whitespace-pre-wrap">
           {errMsg}
         </div>
+      )}
+
+      {openChoose && (
+        <ChooseCensusDialog
+          onClose={() => setOpenChoose(false)}
+          onPick={handlePickExisting}
+          open={openChoose}
+        />
       )}
     </form>
   );
@@ -1678,8 +1791,7 @@ type PollDetail = {
   choices: string[];
 };
 
-type PollPage = { items: PollItem[]; total: number };
-const POLL_PAGE_LIMIT = 20;
+type PollPage = { items: PollItem[]; next_before?: number };
 
 function formatDiff(ms: number): string {
   const s = Math.max(1, Math.floor(ms / 1000));
@@ -1762,7 +1874,7 @@ const MyVoterPolls: React.FC = () => {
   const KR = useKeyringCtx();
   const [leafHex, setLeafHex] = useState<string>("");
   const [page, setPage] = useState<PollPage | null>(null);
-  const [after, setAfter] = useState<number>(0);
+  const [before, setBefore] = useState<number | null>(null);
   const [stack, setStack] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -1773,7 +1885,6 @@ const MyVoterPolls: React.FC = () => {
       if (!acc) return;
       const leaf = await keyToLeafHex(acc.pub);
       setLeafHex(leaf);
-      setAfter(0);
       setStack([]);
     })();
   }, [KR.accounts, KR.active]);
@@ -1784,8 +1895,7 @@ const MyVoterPolls: React.FC = () => {
       setLoading(true);
       try {
         const url = new URL(`${INDEXER_URL}/voters/${leafHex}/polls`);
-        if (after) url.searchParams.set("after", String(after));
-        url.searchParams.set("limit", String(POLL_PAGE_LIMIT));
+        if (before) url.searchParams.set("before", String(before));
         const r = await fetch(url.toString());
         if (!r.ok) {
           throw new Error(await r.text());
@@ -1799,19 +1909,17 @@ const MyVoterPolls: React.FC = () => {
         setLoading(false);
       }
     })();
-  }, [leafHex, after]);
+  }, [leafHex, before]);
 
   const next = () => {
-    if (!page || page.total <= after + POLL_PAGE_LIMIT) return;
-    setStack((s) => [...s, after]);
-    setAfter(after + POLL_PAGE_LIMIT);
+    setStack((s) => [...s, before!]);
+    setBefore(page!.next_before!);
   };
   const prev = () => {
-    if (stack.length === 0) return;
     const s = stack.slice();
     const a = s.pop()!;
     setStack(s);
-    setAfter(a);
+    setBefore(a);
   };
 
   return (
@@ -1838,7 +1946,7 @@ const MyVoterPolls: React.FC = () => {
             <div className="mt-3 flex gap-2 justify-end">
               <button
                 className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-                  stack.length === 0 || loading
+                  loading || stack.length === 0
                     ? "opacity-50 cursor-not-allowed"
                     : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 }`}
@@ -1850,13 +1958,12 @@ const MyVoterPolls: React.FC = () => {
               </button>
               <button
                 className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-                  (!page || page.total <= after + POLL_PAGE_LIMIT || loading)
+                  (loading || !page?.next_before)
                     ? "opacity-50 cursor-not-allowed"
                     : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 }`}
                 onClick={next}
-                disabled={loading || !page ||
-                  page.total <= after + POLL_PAGE_LIMIT}
+                disabled={loading || !page?.next_before}
                 aria-label="Next page"
               >
                 ›
@@ -1872,7 +1979,7 @@ const MyCoordinatorPolls: React.FC = () => {
   const KR = useKeyringCtx();
   const [xyHex, setXyHex] = useState<string>("");
   const [page, setPage] = useState<PollPage | null>(null);
-  const [after, setAfter] = useState<number>(0);
+  const [before, setBefore] = useState<number | null>(null);
   const [stack, setStack] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -1884,7 +1991,6 @@ const MyCoordinatorPolls: React.FC = () => {
       (acc.pub[0].toString(16).padStart(64, "0") +
         acc.pub[1].toString(16).padStart(64, "0")).toLowerCase(),
     );
-    setAfter(0);
     setStack([]);
   }, [KR.accounts, KR.active]);
 
@@ -1894,8 +2000,7 @@ const MyCoordinatorPolls: React.FC = () => {
       setLoading(true);
       try {
         const url = new URL(`${INDEXER_URL}/coordinators/${xyHex}/polls`);
-        if (after) url.searchParams.set("after", String(after));
-        url.searchParams.set("limit", "20");
+        if (before) url.searchParams.set("before", String(before));
         const r = await fetch(url.toString());
         if (!r.ok) {
           throw new Error(await r.text());
@@ -1909,19 +2014,17 @@ const MyCoordinatorPolls: React.FC = () => {
         setLoading(false);
       }
     })();
-  }, [xyHex, after]);
+  }, [xyHex, before]);
 
   const next = () => {
-    if (!page || page.total <= after + POLL_PAGE_LIMIT) return;
-    setStack((s) => [...s, after]);
-    setAfter(after + POLL_PAGE_LIMIT);
+    setStack((s) => [...s, before!]);
+    setBefore(page!.next_before!);
   };
   const prev = () => {
-    if (stack.length === 0) return;
     const s = stack.slice();
     const a = s.pop()!;
     setStack(s);
-    setAfter(a);
+    setBefore(a);
   };
 
   return (
@@ -1962,13 +2065,12 @@ const MyCoordinatorPolls: React.FC = () => {
               </button>
               <button
                 className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-                  (!page || page.total <= after + POLL_PAGE_LIMIT || loading)
+                  (!page || !page?.next_before)
                     ? "opacity-50 cursor-not-allowed"
                     : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 }`}
                 onClick={next}
-                disabled={loading || !page ||
-                  page.total <= after + POLL_PAGE_LIMIT}
+                disabled={loading || !page || !page?.next_before}
                 aria-label="Next page"
               >
                 ›
@@ -2504,7 +2606,6 @@ type VoteRow = {
 
 type VotesPage = {
   items: VoteRow[];
-  next_after?: number | null;
   total: number;
 };
 
@@ -2673,7 +2774,6 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
       };
       await saveTallyStore(s);
       setStore(s);
-      await refreshRemaining();
       setStage("");
     } catch (e: any) {
       console.error(e);
@@ -3213,6 +3313,7 @@ const Layout: React.FC<{ setShowAccounts: (showAccounts: boolean) => void }> = (
             <NavLink to="/my/tallier" className={navItemClass}>
               Tally
             </NavLink>
+            <NavLink to="/censuses" className={navItemClass}>Census</NavLink>
           </nav>
 
           {/* Socials footer */}
@@ -3279,6 +3380,9 @@ const Layout: React.FC<{ setShowAccounts: (showAccounts: boolean) => void }> = (
                   >
                     Tally
                   </NavLink>
+                  <NavLink to="/censuses" className={navItemClass}>
+                    Census
+                  </NavLink>
                 </nav>
 
                 {/* Socials footer (mobile) */}
@@ -3310,8 +3414,12 @@ const Layout: React.FC<{ setShowAccounts: (showAccounts: boolean) => void }> = (
           </div>
         )}
 
-        <main className="flex-1 min-w-0 py-4">
+        <main className="flex-1 min-w-0 py-4" id="content-root">
           <Outlet />
+          <div
+            id="content-overlay-root"
+            className="absolute inset-0 pointer-events-none z-30"
+          />
         </main>
       </div>
     </div>
@@ -3345,6 +3453,16 @@ const Inner: React.FC = () => {
                     />
                     <Route path="/tally/:id" element={<TallyRoute />} />
                     <Route path="/poll/:id" element={<VoteRoute />} />
+                    <Route path="/censuses" element={<CensusesListPage />} />
+                    <Route path="/census/new" element={<CensusCreatePage />} />
+                    <Route
+                      path="/census/:censusId"
+                      element={<CensusDetailPage />}
+                    />
+                    <Route
+                      path="/census/:censusId/join/:token"
+                      element={<CensusJoinPage />}
+                    />
                   </Route>
                 </Routes>
 

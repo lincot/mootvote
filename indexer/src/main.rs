@@ -28,7 +28,7 @@ mod utils;
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 pub struct Cli {
-    #[arg(long, short, help = "Common config path")]
+    #[arg(long, short, help = "Config path")]
     config: PathBuf,
 }
 

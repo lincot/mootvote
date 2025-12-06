@@ -1,16 +1,12 @@
 use clap::Parser;
-use solana_sdk::signer::Signer;
-use solana_tools::solana_transactor::{RpcPool, SolanaTransactor};
+use sqlx::postgres::PgPoolOptions;
 use std::{env, path::PathBuf};
-use tracing::{debug, error};
+use tracing::error;
 
-use crate::{config::RelayerConfig, server::Server};
+use crate::{config::IndexerConfig, server::Server};
 
 mod config;
-mod prover;
-mod rocks;
 mod server;
-mod utils;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -25,16 +21,16 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse_from(env::args());
-    let config = RelayerConfig::from_path(cli.config);
-    debug!("Public key {}", config.solana.keypair.pubkey());
+    let config = IndexerConfig::from_path(cli.config);
 
-    let rpc_pool = RpcPool::new(&config.solana.read_rpcs, &config.solana.write_rpcs)
-        .expect("RPC pool failed to initialize");
-
-    let transactor = SolanaTransactor::start(rpc_pool)
+    let url = std::env::var("DATABASE_URL").expect("expected DATABASE_URL to be set");
+    let pg_pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&url)
         .await
-        .expect("Failed to start solana transactor");
-    let server = Server::new(config.solana.keypair, transactor, &config.rocksdb_path);
+        .expect("Expected postgres to connect");
+
+    let server = Server::new(pg_pool);
 
     let res = server
         .execute(
@@ -43,7 +39,7 @@ async fn main() {
             std::thread::available_parallelism()
                 .unwrap()
                 .get()
-                .saturating_sub(1)
+                .saturating_sub(5)
                 .min(1),
         )
         .await;

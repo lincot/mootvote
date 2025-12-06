@@ -169,12 +169,6 @@ async fn list_votes(
     .await
     .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?;
 
-    let next_after = if rows.len() > limit as usize {
-        Some(rows[limit as usize - 1].id)
-    } else {
-        None
-    };
-
     let items: Vec<_> = rows
         .into_iter()
         .take(limit as usize)
@@ -190,13 +184,11 @@ async fn list_votes(
     #[derive(Serialize)]
     struct Page {
         items: Vec<VoteOut>,
-        next_after: Option<i64>,
         total: u64,
     }
 
     Ok(web::Json(Page {
         items,
-        next_after,
         total: total as u64,
     }))
 }
@@ -215,13 +207,13 @@ struct PollItem {
 #[derive(Serialize)]
 struct PollPage {
     items: Vec<PollItem>,
-    total: u64,
+    next_before: Option<u64>,
 }
 
 #[derive(Deserialize)]
 struct UserPollsQuery {
     limit: Option<i64>,
-    after: Option<i64>,
+    before: Option<i64>,
 }
 
 #[actix_web::get("/voters/{leaf}/polls")]
@@ -234,33 +226,32 @@ async fn polls_by_voter(
     hex::decode_to_slice(&*leaf, &mut leaf_arr)
         .map_err(|_| actix_web::error::ErrorBadRequest("bad hex"))?;
     let limit = q.limit.unwrap_or(50).clamp(1, 500);
-    let after = q.after.unwrap_or(0);
-
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*)::BIGINT FROM polls"#,)
-        .fetch_one(&state.pool)
-        .await
-        .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?
-        .unwrap_or(0) as u64;
+    let before = q.before.unwrap_or(i64::MAX);
 
     let rows = sqlx::query!(
         r#"
-        SELECT p.poll_id, p.title, p.choices, p.voting_start_time,
+        SELECT p.id, p.poll_id, p.title, p.choices, p.voting_start_time,
                p.voting_end_time, p.description_url, p.census_url
         FROM voter_polls vp
         JOIN polls p ON p.poll_id = vp.poll_id
             AND census_valid = TRUE AND title IS NOT NULL
-        WHERE vp.key_hash = $1 AND p.id <= $2
+        WHERE vp.key_hash = $1 AND p.id < $2
         ORDER BY p.id DESC
         LIMIT $3
         "#,
         &leaf_arr,
-        total as i64 - after,
+        before,
         limit + 1
     )
     .fetch_all(&state.pool)
     .await
     .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?;
 
+    let next_before = if rows.len() > limit as usize {
+        Some(rows[limit as usize - 1].id as u64)
+    } else {
+        None
+    };
     let items = rows
         .into_iter()
         .take(limit as usize)
@@ -277,7 +268,7 @@ async fn polls_by_voter(
         })
         .collect();
 
-    Ok(web::Json(PollPage { items, total }))
+    Ok(web::Json(PollPage { items, next_before }))
 }
 
 #[actix_web::get("/coordinators/{xy}/polls")]
@@ -290,33 +281,44 @@ async fn polls_by_coordinator(
     hex::decode_to_slice(&*path, &mut xy_arr)
         .map_err(|_| actix_web::error::ErrorBadRequest("bad hex"))?;
     let limit = q.limit.unwrap_or(50).clamp(1, 500);
-    let after = q.after.unwrap_or(0);
+    let before = q.before.unwrap_or(i64::MAX);
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*)::BIGINT FROM polls"#,)
-        .fetch_one(&state.pool)
-        .await
-        .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?
-        .unwrap_or(0) as u64;
+    // let total = sqlx::query_scalar!(r#"SELECT COUNT(*)::BIGINT FROM polls"#,)
+    //     .fetch_one(&state.pool)
+    //     .await
+    //     .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?
+    //     .unwrap_or(0) as u64;
 
     let rows = sqlx::query!(
         r#"
-        SELECT poll_id, title, choices, voting_start_time, voting_end_time,
+        SELECT id, poll_id, title, choices, voting_start_time, voting_end_time,
                description_url, census_url
         FROM polls
-        WHERE coord_x=$1 AND coord_y=$2 AND id <= $3
+        WHERE coord_x=$1 AND coord_y=$2 AND id < $3
             AND census_valid = TRUE AND title IS NOT NULL
         ORDER BY id DESC
         LIMIT $4
         "#,
         &xy_arr[..32],
         &xy_arr[32..],
-        total as i64 - after,
+        before,
+        // total as i64 - after,
         limit + 1
     )
     .fetch_all(&state.pool)
     .await
     .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?;
 
+    // let next_before = rows
+    //     .iter()
+    //     .take(limit as usize)
+    //     .last()
+    //     .map(|row| row.id as u64);
+    let next_before = if rows.len() > limit as usize {
+        Some(rows[limit as usize - 1].id as u64)
+    } else {
+        None
+    };
     let items = rows
         .into_iter()
         .take(limit as usize)
@@ -333,5 +335,5 @@ async fn polls_by_coordinator(
         })
         .collect();
 
-    Ok(web::Json(PollPage { items, total }))
+    Ok(web::Json(PollPage { items, next_before }))
 }
