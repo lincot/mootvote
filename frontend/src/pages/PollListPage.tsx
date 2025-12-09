@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import {
-  btn,
-  INDEXER_URL,
-  keyToLeafHex,
-  UNLOCK_TO_VIEW,
-  useKeyringCtx,
-} from "../App.tsx";
-import { PollStatus } from "../PollStatus.tsx";
+import { PollStatus } from "../components/PollStatus.tsx";
+import { INDEXER_URL } from "../env.tsx";
+import { keyToLeafHex, useKeyringCtx } from "../keyring.tsx";
+import { btn } from "../btn.ts";
+import { unlockToView } from "../unlockToView.tsx";
 
 export type PollItem = {
   poll_id: string;
@@ -99,7 +96,7 @@ export default function PollListPage() {
   const canPrev = stack.length !== 0;
   const canNext = !!page?.next_before;
 
-  if (KR.locked) return UNLOCK_TO_VIEW;
+  if (KR.locked) return unlockToView;
 
   return (
     <div className="max-w-2xl mx-auto p-4">

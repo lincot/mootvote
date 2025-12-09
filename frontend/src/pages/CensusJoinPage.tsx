@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { btn, CENSUS_URL, useKeyringCtx } from "../App.tsx";
 import { makeAuthSig } from "../auth.ts";
+import { CENSUS_URL } from "../env.tsx";
+import { useKeyringCtx } from "../keyring.tsx";
+import { btn } from "../btn.ts";
 
 type Preflight = { member_id: number; name: string; census_title: string };
 
@@ -37,9 +39,6 @@ export default function CensusJoinPage() {
     try {
       setErr("");
       setStage("Signing…");
-      if (KR.locked || !KR.accounts[KR.active]) {
-        throw new Error("Unlock ZK Accounts and select an account");
-      }
       const acct = KR.accounts[KR.active];
       const sig = await makeAuthSig(acct.prv, acct.pub);
       setStage("Submitting…");

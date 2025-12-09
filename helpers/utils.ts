@@ -204,3 +204,27 @@ export function jsonReviver(_k: string, v: any) {
   }
   return v;
 }
+
+export function arraysEqual(arr1: Uint8Array, arr2: Uint8Array): boolean {
+  if (arr1.length !== arr2.length) {
+    return false;
+  }
+  return arr1.every((value, index) => value === arr2[index]);
+}
+
+export const toHex32 = (n: bigint) => {
+  const out = new Uint8Array(32);
+  let x = n;
+  for (let i = 31; i >= 0; i--) {
+    out[i] = Number(x & 0xffn);
+    x >>= 8n;
+  }
+  return Array.from(out).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export const bytes32ToBig = (u8: Uint8Array, off: number) => {
+  let x = 0n;
+  for (let i = 0; i < 32; i++) x = (x << 8n) | BigInt(u8[off + i]);
+  return x;
+};
+

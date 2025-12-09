@@ -1,5 +1,5 @@
 import { PLATFORM_NAME } from "@lincot/anon-vote-sdk";
-import { getEddsa, getPoseidon } from "./App.tsx";
+import { getEddsa, getPoseidon } from "./circomMemo";
 
 const AUTH_DOMAIN = 1635087464n;
 

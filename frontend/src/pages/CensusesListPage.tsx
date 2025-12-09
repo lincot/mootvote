@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { btn, CENSUS_URL, UNLOCK_TO_VIEW, useKeyringCtx } from "../App.tsx";
 import { makeAuthSig } from "../auth.ts";
+import { CENSUS_URL } from "../env.tsx";
+import { useKeyringCtx } from "../keyring.tsx";
+import { unlockToView } from "../unlockToView.tsx";
+import { btn } from "../btn.ts";
 
 const CENSUS_PAGE_LIMIT = 20;
 
@@ -70,7 +73,7 @@ export default function CensusesListPage() {
   }, [KR.locked, KR.active, load]);
 
   if (KR.locked) {
-    return UNLOCK_TO_VIEW;
+    return unlockToView;
   }
 
   const onNext = () => {

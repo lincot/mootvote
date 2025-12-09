@@ -1,28 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
-import {
-  INDEXER_URL,
-  keyToLeafHex,
-  TallyPage,
-  useKeyringCtx,
-  VotePage,
-} from "../App.tsx";
-
-type PollDetail = {
-  poll_id: string;
-  census_root: string;
-  coordinator_key: [string, string];
-  voting_start_time: number;
-  voting_end_time: number;
-  fee: string;
-  platform_fee: string;
-  fee_destination: string;
-  description_url: string;
-  census_url: string;
-  tally: number[] | null;
-  title: string;
-  choices: string[];
-};
+import { INDEXER_URL } from "../env.tsx";
+import { keyToLeafHex, useKeyringCtx } from "../keyring.tsx";
+import type { PollDetail } from "../poll.ts";
+import { Vote } from "../components/Vote.tsx";
+import { Tally } from "../components/Tally.tsx";
 
 export type PollClock = { label: string; isOver: boolean; isActive: boolean };
 
@@ -204,14 +186,14 @@ export default function PollDetailPage() {
           {/* Vote (embedded) */}
           {tab === "vote" && (
             <div className="max-w-xl mx-auto p-4 rounded-xl border">
-              <VotePage pollId={BigInt(pollId!)} />
+              <Vote poll={poll} />
             </div>
           )}
 
           {/* Tally (embedded) */}
           {tab === "tally" && (
             <div className="max-w-xl mx-auto p-4 rounded-xl border">
-              <TallyPage pollId={BigInt(pollId!)} />
+              <Tally poll={poll} />
             </div>
           )}
 

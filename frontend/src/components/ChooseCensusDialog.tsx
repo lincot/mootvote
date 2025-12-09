@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { makeAuthSig } from "./auth.ts";
-import { CENSUS_URL, useKeyringCtx } from "./App.tsx";
+import { makeAuthSig } from "../auth.ts";
 import { createPortal } from "react-dom";
+import { CENSUS_URL } from "../env.tsx";
+import { useKeyringCtx } from "../keyring.tsx";
 
 type CensusListItem = {
   id: number;
@@ -10,15 +11,15 @@ type CensusListItem = {
 };
 type CensusListOut = { items: CensusListItem[]; next_before: number | null };
 
-export function ChooseCensusDialog({
-  open,
-  onClose,
-  onPick,
-}: {
+export const ChooseCensusDialog: React.FC<{
   open: boolean;
   onClose: () => void;
   onPick: (it: { id: number; title: string }) => void;
-}) {
+}> = ({
+  open,
+  onClose,
+  onPick,
+}) => {
   const KR = useKeyringCtx();
   const [list, setList] = useState<CensusListOut | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,7 +36,7 @@ export function ChooseCensusDialog({
       setLoading(true);
       setErr("");
       const acct = KR.accounts[KR.active];
-      if (!acct) throw new Error("Unlock ZK Accounts");
+      if (!acct) return;
       const sig = await makeAuthSig(acct.prv, acct.pub);
       const r = await fetch(
         `${CENSUS_URL}/censuses?creator_only=true${
@@ -130,33 +131,44 @@ export function ChooseCensusDialog({
 
         <div className="p-4 space-y-3">
           {err && <div className="text-sm text-red-600">{err}</div>}
-          <input
-            placeholder="Search by title…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="w-full rounded border px-3 py-2 dark:border-neutral-700"
-          />
+          {KR.locked && (
+            <div className="text-sm text-amber-700 dark:text-amber-500">
+              Unlock “ZK Accounts” to view your censuses.
+            </div>
+          )}
+          {!KR.locked && (
+            <>
+              <input
+                placeholder="Search by title…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="w-full rounded border px-3 py-2 dark:border-neutral-700"
+              />
 
-          <div className="rounded-xl border divide-y dark:border-neutral-700">
-            {loading && <div className="p-3 text-sm opacity-70">Loading…</div>}
-            {!loading && shown.map((it) => (
-              <button
-                key={it.id}
-                onClick={() => onPick({ id: it.id, title: it.title })}
-                className="w-full text-left p-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
-              >
-                <div className="font-medium">{it.title}</div>
-                {it.description && (
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 line-clamp-2">
-                    {it.description}
-                  </div>
+              <div className="rounded-xl border divide-y dark:border-neutral-700">
+                {loading && (
+                  <div className="p-3 text-sm opacity-70">Loading…</div>
                 )}
-              </button>
-            ))}
-            {!loading && shown.length === 0 && (
-              <div className="p-3 text-sm text-zinc-500">No matches.</div>
-            )}
-          </div>
+                {!loading && shown.map((it) => (
+                  <button
+                    key={it.id}
+                    onClick={() => onPick({ id: it.id, title: it.title })}
+                    className="w-full text-left p-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+                  >
+                    <div className="font-medium">{it.title}</div>
+                    {it.description && (
+                      <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 line-clamp-2">
+                        {it.description}
+                      </div>
+                    )}
+                  </button>
+                ))}
+                {!loading && shown.length === 0 && (
+                  <div className="p-3 text-sm text-zinc-500">No matches.</div>
+                )}
+              </div>
+            </>
+          )}
 
           <div className="flex gap-2 justify-end">
             <button
@@ -189,4 +201,4 @@ export function ChooseCensusDialog({
     </div>,
     root,
   );
-}
+};

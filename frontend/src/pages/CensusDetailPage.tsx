@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { makeAuthSig } from "../auth.ts";
-import { CENSUS_URL, UNLOCK_TO_VIEW, useKeyringCtx } from "../App.tsx";
+import { CENSUS_URL } from "../env.tsx";
+import { useKeyringCtx } from "../keyring.tsx";
+import { unlockToView } from "../unlockToView.tsx";
 
 type MemberRow = {
   id: number;
@@ -71,7 +73,7 @@ export default function CensusDetailPage() {
     load(null);
   }, [KR]);
 
-  if (KR.locked) return UNLOCK_TO_VIEW;
+  if (KR.locked) return unlockToView;
 
   const next = () => {
     const after = page!.items[page!.items.length - 1].id;

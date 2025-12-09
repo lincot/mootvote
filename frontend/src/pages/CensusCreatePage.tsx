@@ -3,14 +3,12 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { makeAuthSig } from "../auth.ts";
-import {
-  btn,
-  CENSUS_URL,
-  INPUT_CN,
-  UNLOCK_TO_VIEW,
-  useKeyringCtx,
-} from "../App.tsx";
 import { useNavigate } from "react-router";
+import { CENSUS_URL } from "../env.tsx";
+import { useKeyringCtx } from "../keyring.tsx";
+import { unlockToView } from "../unlockToView.tsx";
+import { INPUT_CN } from "../input.ts";
+import { btn } from "../btn.ts";
 
 const schema = z.object({
   title: z.string().min(1, "Title required").max(200),
@@ -84,7 +82,7 @@ export default function CensusCreatePage() {
 
   const disabled = !isValid || !canSubmit || isSubmitting;
 
-  if (KR.locked) return UNLOCK_TO_VIEW;
+  if (KR.locked) return unlockToView;
 
   return (
     <div className="max-w-xl mx-auto p-4">
