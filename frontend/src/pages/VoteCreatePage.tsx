@@ -12,7 +12,7 @@ import {
   toHex32,
 } from "../../../helpers/utils.ts";
 import { makeAuthSig } from "../auth.ts";
-import { ChooseCensusDialog } from "../components/ChooseCensusDialog.tsx";
+import { ChooseCensusModal } from "../components/ChooseCensusModal.tsx";
 import {
   createPoll,
   cuLimitInstruction,
@@ -286,7 +286,7 @@ export const PollCreatePage: React.FC<{}> = () => {
     const root = await getMerkleRoot(CENSUS_DEPTH, leaves);
     setValue("censusBytes", bytes, { shouldValidate: true });
     setValue("censusCount", leaves.length, { shouldValidate: true });
-    setValue("censusRootHex", toHex32(root), { shouldValidate: true });
+    setValue("censusRootHex", "0x" + toHex32(root), { shouldValidate: true });
 
     /// XXX: Otherwise it won't show date errors until census is uploaded
     // and date is changed again...
@@ -311,7 +311,7 @@ export const PollCreatePage: React.FC<{}> = () => {
       setValue("selectedCensusTitle", picked.title, { shouldValidate: true });
       setValue("censusBytes", buf, { shouldValidate: true });
       setValue("censusCount", leaves.length, { shouldValidate: true });
-      setValue("censusRootHex", toHex32(root), { shouldValidate: true });
+      setValue("censusRootHex", "0x" + toHex32(root), { shouldValidate: true });
       setOpenChoose(false);
     } catch (e: any) {
       console.error(e);
@@ -600,7 +600,7 @@ export const PollCreatePage: React.FC<{}> = () => {
       )}
 
       {openChoose && (
-        <ChooseCensusDialog
+        <ChooseCensusModal
           onClose={() => setOpenChoose(false)}
           onPick={handlePickExisting}
           open={openChoose}

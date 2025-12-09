@@ -11,7 +11,7 @@ type CensusListItem = {
 };
 type CensusListOut = { items: CensusListItem[]; next_before: number | null };
 
-export const ChooseCensusDialog: React.FC<{
+export const ChooseCensusModal: React.FC<{
   open: boolean;
   onClose: () => void;
   onPick: (it: { id: number; title: string }) => void;
@@ -112,14 +112,15 @@ export const ChooseCensusDialog: React.FC<{
       className="fixed inset-0 flex items-center justify-center pointer-events-auto"
       role="dialog"
       aria-modal="true"
-      onClick={onClose} // click outside closes
+      onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/40 dark:bg-black/60" />
+
       <div
-        className="relative w-full max-w-xl rounded-xl bg-white dark:bg-neutral-900 p-4 shadow-xl"
+        className="relative w-full max-w-xl max-h-[60vh] flex flex-col rounded-xl bg-white dark:bg-neutral-900 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-neutral-800">
+        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-neutral-800 shrink-0">
           <div className="font-semibold">Choose census</div>
           <button
             onClick={onClose}
@@ -129,7 +130,7 @@ export const ChooseCensusDialog: React.FC<{
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
           {err && <div className="text-sm text-red-600">{err}</div>}
           {KR.locked && (
             <div className="text-sm text-amber-700 dark:text-amber-500">
@@ -149,20 +150,21 @@ export const ChooseCensusDialog: React.FC<{
                 {loading && (
                   <div className="p-3 text-sm opacity-70">Loading…</div>
                 )}
-                {!loading && shown.map((it) => (
-                  <button
-                    key={it.id}
-                    onClick={() => onPick({ id: it.id, title: it.title })}
-                    className="w-full text-left p-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
-                  >
-                    <div className="font-medium">{it.title}</div>
-                    {it.description && (
-                      <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 line-clamp-2">
-                        {it.description}
-                      </div>
-                    )}
-                  </button>
-                ))}
+                {!loading &&
+                  shown.map((it) => (
+                    <button
+                      key={it.id}
+                      onClick={() => onPick({ id: it.id, title: it.title })}
+                      className="w-full text-left p-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+                    >
+                      <div className="font-medium">{it.title}</div>
+                      {it.description && (
+                        <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 line-clamp-2">
+                          {it.description}
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 {!loading && shown.length === 0 && (
                   <div className="p-3 text-sm text-zinc-500">No matches.</div>
                 )}
