@@ -1,4 +1,5 @@
 use actix_cors::Cors;
+use actix_web::error::ErrorInternalServerError;
 use actix_web::{delete, get, post, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use babyjubjub_rs::Fr;
 use babyjubjub_rs::{verify, Point, Signature};
@@ -92,7 +93,7 @@ pub async fn create_census(
         .pg_pool
         .begin()
         .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(|_| ErrorInternalServerError("Database error"))?;
 
     let created = sqlx::query!(
         r#"INSERT INTO censuses (title, description, creator_x, creator_y)
@@ -104,7 +105,7 @@ pub async fn create_census(
     )
     .fetch_one(&mut *tx)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
     let census_id = created.id;
 
     if let Some(names) = &body.members {
@@ -119,13 +120,13 @@ pub async fn create_census(
             )
             .fetch_one(&mut *tx)
             .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(|_| ErrorInternalServerError("Database error"))?;
         }
     }
 
     tx.commit()
         .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(|_| ErrorInternalServerError("Database error"))?;
     info!("created census {census_id}");
 
     Ok(web::Json(CreateCensusOut { census_id }))
@@ -185,7 +186,7 @@ pub async fn list_censuses(
     )
     .fetch_all(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
 
     let next_before = if rows.len() > q.limit as usize {
         Some(rows[q.limit as usize - 1].id as u64)
@@ -244,7 +245,7 @@ pub async fn list_members(
     )
     .fetch_optional(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
 
     let Some(census) = census else {
         return Err(actix_web::error::ErrorNotFound("census not found"));
@@ -262,7 +263,7 @@ pub async fn list_members(
         )
         .fetch_optional(&state.pg_pool)
         .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(|_| ErrorInternalServerError("Database error"))?;
         if row.is_none() {
             return Err(actix_web::error::ErrorUnauthorized("not a creator/member"));
         }
@@ -279,7 +280,7 @@ pub async fn list_members(
     )
     .fetch_all(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
 
     let any_left = rows.len() > q.limit as usize;
     let items: Vec<MemberRow> = rows
@@ -348,7 +349,7 @@ pub async fn add_member(
     )
     .fetch_optional(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
     let Some(c) = c else {
         return Err(actix_web::error::ErrorNotFound("no such census"));
     };
@@ -367,7 +368,7 @@ pub async fn add_member(
     )
     .fetch_one(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
     let invite = InviteOut {
         member_id: row.id,
         name: name.clone(),
@@ -393,7 +394,7 @@ pub async fn remove_member(
     )
     .fetch_optional(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
     let Some(c) = c else {
         return Err(actix_web::error::ErrorNotFound("no such census"));
     };
@@ -410,7 +411,7 @@ pub async fn remove_member(
     )
     .execute(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
     if res.rows_affected() == 0 {
         return Err(actix_web::error::ErrorNotFound("no such member"));
     }
@@ -446,7 +447,7 @@ pub async fn preflight_registration(
     )
     .fetch_optional(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
     let Some(r) = r else {
         return Err(actix_web::error::ErrorUnauthorized("invalid/used token"));
     };
@@ -492,7 +493,7 @@ pub async fn claim_member(
     )
     .execute(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
 
     if res.rows_affected() != 1 {
         return Err(actix_web::error::ErrorConflict(
@@ -519,7 +520,7 @@ pub async fn export_census(
     )
     .fetch_optional(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
     let Some(c) = c else {
         return Err(actix_web::error::ErrorNotFound("no such census"));
     };
@@ -540,7 +541,7 @@ pub async fn export_census(
     )
     .fetch_all(&state.pg_pool)
     .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
 
     let mut out = Vec::with_capacity(rows.len() * 32);
     for r in rows {

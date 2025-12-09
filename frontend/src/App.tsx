@@ -9,13 +9,11 @@ import React, {
 } from "react";
 import {
   BrowserRouter,
-  Link,
   Navigate,
   NavLink,
   Outlet,
   Route,
   Routes,
-  useParams,
 } from "react-router";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
@@ -91,6 +89,8 @@ import CensusDetailPage from "./pages/CensusDetailPage";
 import CensusJoinPage from "./pages/CensusJoinPage";
 import { makeAuthSig } from "./auth.ts";
 import { ChooseCensusDialog } from "./ChooseCensusDialog.tsx";
+import PollListPage from "./pages/PollListPage.tsx";
+import PollDetailPage from "./pages/PollDetailPage.tsx";
 
 const MAX_CHOICES = 8;
 const CENSUS_DEPTH = 40;
@@ -747,7 +747,7 @@ export async function getEddsa(): Promise<Eddsa> {
   return eddsaP;
 }
 
-async function keyToLeafHex([x, y]: [bigint, bigint]): Promise<string> {
+export async function keyToLeafHex([x, y]: [bigint, bigint]): Promise<string> {
   const P = await getPoseidon();
   const F = P.F;
   const leaf = F.toObject(P([x, y]));
@@ -1280,8 +1280,6 @@ const PollCreator: React.FC<{}> = () => {
                     Chosen:{" "}
                     <span className="font-medium">
                       {(control._formValues as FormValues).selectedCensusTitle}
-                      {" "}
-                      (#{(control._formValues as FormValues).selectedCensusId})
                     </span>
                   </div>
                 )}
@@ -1773,14 +1771,6 @@ const ResultsBars: React.FC<{
   );
 };
 
-type PollItem = {
-  poll_id: string;
-  voting_start_time: number;
-  voting_end_time: number;
-  title: string;
-  choices: string[];
-};
-
 type PollDetail = {
   poll_id: string;
   census_root: string;
@@ -1795,279 +1785,6 @@ type PollDetail = {
   tally: number[] | null;
   title: string;
   choices: string[];
-};
-
-type PollPage = { items: PollItem[]; next_before?: number };
-
-function formatDiff(ms: number): string {
-  const s = Math.max(1, Math.floor(ms / 1000));
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
-
-function pollStatus(nowMs: number, startSec: number, endSec: number): string {
-  const startMs = startSec * 1000;
-  const endMs = endSec * 1000;
-  if (nowMs < startMs) return `Starts in ${formatDiff(startMs - nowMs)}`;
-  if (nowMs < endMs) return `Ends in ${formatDiff(endMs - nowMs)}`;
-  return `Ended ${formatDiff(nowMs - endMs)} ago`;
-}
-
-function pollStatusMeta(
-  nowMs: number,
-  startSec: number,
-  endSec: number,
-): { label: string; cls: string } {
-  const label = pollStatus(nowMs, startSec, endSec);
-  const startMs = startSec * 1000;
-  const endMs = endSec * 1000;
-  if (nowMs < startMs) {
-    return {
-      label,
-      cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-    };
-  } else if (nowMs < endMs) {
-    return {
-      label,
-      cls:
-        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-    };
-  } else {
-    return {
-      label,
-      cls:
-        "bg-neutral-100 text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-400",
-    };
-  }
-}
-
-const PollRow: React.FC<{ p: PollItem; to?: string }> = ({ p, to }) => {
-  const now = Date.now();
-  const meta = pollStatusMeta(now, p.voting_start_time, p.voting_end_time);
-  return (
-    <Link
-      to={to ?? `/poll/${p.poll_id}`}
-      className="block rounded-xl border p-3 border-gray-200 dark:border-neutral-800
-                  hover:bg-neutral-50 dark:hover:bg-neutral-800 transition"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-medium truncate">
-            {p.title || "Untitled poll"}
-          </div>
-          <div className="mt-1 flex items-center gap-2 text-xs">
-            <span className="opacity-70">#{p.poll_id}</span>
-            <span
-              className={`inline-flex items-center px-2 py-0.5 rounded ${meta.cls}`}
-            >
-              {meta.label}
-            </span>
-          </div>
-        </div>
-        <div className="shrink-0 text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 hidden sm:block">
-          →
-        </div>
-      </div>
-    </Link>
-  );
-};
-
-const MyVoterPolls: React.FC = () => {
-  const KR = useKeyringCtx();
-  const [leafHex, setLeafHex] = useState<string>("");
-  const [page, setPage] = useState<PollPage | null>(null);
-  const [before, setBefore] = useState<number | null>(null);
-  const [stack, setStack] = useState<number[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-
-  useEffect(() => {
-    (async () => {
-      const acc = KR.accounts[KR.active] ?? KR.accounts[0];
-      if (!acc) return;
-      const leaf = await keyToLeafHex(acc.pub);
-      setLeafHex(leaf);
-      setStack([]);
-    })();
-  }, [KR.accounts, KR.active]);
-
-  useEffect(() => {
-    if (!leafHex) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const url = new URL(`${INDEXER_URL}/voters/${leafHex}/polls`);
-        if (before) url.searchParams.set("before", String(before));
-        const r = await fetch(url.toString());
-        if (!r.ok) {
-          throw new Error(await r.text());
-        }
-        const j: PollPage = await r.json();
-        setPage(j);
-      } catch (e: any) {
-        console.error(e);
-        setErr("Error: " + String(e?.message || e));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [leafHex, before]);
-
-  const next = () => {
-    setStack((s) => [...s, before!]);
-    setBefore(page!.next_before!);
-  };
-  const prev = () => {
-    const s = stack.slice();
-    const a = s.pop()!;
-    setStack(s);
-    setBefore(a);
-  };
-
-  if (KR.locked) return UNLOCK_TO_VIEW;
-
-  return (
-    <div className="max-w-xl mx-auto p-4">
-      <>
-        {!page && loading && <div className="text-sm opacity-70">Loading…</div>}
-        {!page && err && <div className="text-sm text-red-600">{err}</div>}
-        {page && page.items.length === 0 && (
-          <div className="text-sm opacity-70">No polls found.</div>
-        )}
-        <div className="space-y-2">
-          {page?.items.map((p) => <PollRow key={p.poll_id} p={p} />)}
-        </div>
-        <div className="mt-3 flex gap-2 justify-end">
-          <button
-            className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-              loading || stack.length === 0
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            }`}
-            onClick={prev}
-            disabled={loading || stack.length === 0}
-            aria-label="Previous page"
-          >
-            ‹
-          </button>
-          <button
-            className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-              (loading || !page?.next_before)
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            }`}
-            onClick={next}
-            disabled={loading || !page?.next_before}
-            aria-label="Next page"
-          >
-            ›
-          </button>
-        </div>
-      </>
-    </div>
-  );
-};
-
-const MyCoordinatorPolls: React.FC = () => {
-  const KR = useKeyringCtx();
-  const [xyHex, setXyHex] = useState<string>("");
-  const [page, setPage] = useState<PollPage | null>(null);
-  const [before, setBefore] = useState<number | null>(null);
-  const [stack, setStack] = useState<number[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-
-  useEffect(() => {
-    const acc = KR.accounts[KR.active] ?? KR.accounts[0];
-    if (!acc) return;
-    setXyHex(
-      (acc.pub[0].toString(16).padStart(64, "0") +
-        acc.pub[1].toString(16).padStart(64, "0")).toLowerCase(),
-    );
-    setStack([]);
-  }, [KR.accounts, KR.active]);
-
-  useEffect(() => {
-    if (!xyHex) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const url = new URL(`${INDEXER_URL}/coordinators/${xyHex}/polls`);
-        if (before) url.searchParams.set("before", String(before));
-        const r = await fetch(url.toString());
-        if (!r.ok) {
-          throw new Error(await r.text());
-        }
-        const j: PollPage = await r.json();
-        setPage(j);
-      } catch (e: any) {
-        console.error(e);
-        setErr("Error: " + String(e?.message || e));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [xyHex, before]);
-
-  const next = () => {
-    setStack((s) => [...s, before!]);
-    setBefore(page!.next_before!);
-  };
-  const prev = () => {
-    const s = stack.slice();
-    const a = s.pop()!;
-    setStack(s);
-    setBefore(a);
-  };
-
-  if (KR.locked) return UNLOCK_TO_VIEW;
-
-  return (
-    <div className="max-w-xl mx-auto p-4">
-      <>
-        {!page && loading && <div className="text-sm opacity-70">Loading…</div>}
-        {!page && err && <div className="text-sm text-red-600">{err}</div>}
-        {page && page.items.length === 0 && (
-          <div className="text-sm opacity-70">No polls found.</div>
-        )}
-        <div className="space-y-2">
-          {page?.items.map((p) => (
-            <PollRow key={p.poll_id} p={p} to={`/tally/${p.poll_id}`} />
-          ))}
-        </div>
-        <div className="mt-3 flex gap-2 justify-end">
-          <button
-            className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-              stack.length === 0 || loading
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            }`}
-            onClick={prev}
-            disabled={loading || stack.length === 0}
-            aria-label="Previous page"
-          >
-            ‹
-          </button>
-          <button
-            className={`rounded-lg px-3 py-2 border dark:border-neutral-700 ${
-              (!page || !page?.next_before)
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            }`}
-            onClick={next}
-            disabled={loading || !page || !page?.next_before}
-            aria-label="Next page"
-          >
-            ›
-          </button>
-        </div>
-      </>
-    </div>
-  );
 };
 
 function toLocalInputValue(d: Date): string {
@@ -2103,7 +1820,7 @@ type RelayRequestBody = {
   accounts: RelayAccountMeta[];
 };
 
-const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
+export const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
   const wallet = useWallet();
   const KR = useKeyringCtx();
   const RK = useRevoKeysCtx();
@@ -2116,11 +1833,6 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
   const [useRelayer, setUseRelayer] = useState<boolean>(true);
   const [err, setErr] = useState<string>("");
   const [busy, setBusy] = useState(false);
-
-  const clock = usePollClock(
-    poll?.voting_start_time ?? 0,
-    poll?.voting_end_time ?? 0,
-  );
 
   useEffect(() => {
     (async () => {
@@ -2464,107 +2176,80 @@ const VotePage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
   const now = Math.floor(Date.now() / 1000);
   const active = now >= poll.voting_start_time && now <= poll.voting_end_time;
 
-  if (KR.locked) {
-    return UNLOCK_TO_VIEW;
-  }
-
   return (
-    <div className="max-w-xl mx-auto p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold truncate">{title}</h2>
-          <div className="text-xs opacity-70">#{poll.poll_id}</div>
-        </div>
-        <span className="text-sm opacity-70">{clock.label}</span>
+    <>
+      {choices.length === 0
+        ? (
+          <div className="text-sm opacity-70">
+            No choices found in description.
+          </div>
+        )
+        : (
+          <div className="space-y-2">
+            {choices.map((c, i) => (
+              <label
+                key={i}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <input
+                  type="radio"
+                  name="choice"
+                  checked={selected === i}
+                  onChange={() => setSelected(i)}
+                />
+                <span>{c}</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          className={btn(!disabled)}
+          disabled={disabled}
+          onClick={onVoteClick}
+        >
+          {active ? "Cast vote" : "Voting closed"}
+        </button>
+        {stage && <span className="text-sm text-purple-600">{stage}</span>}
       </div>
+      {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
+      {!useRelayer && !wallet.publicKey && (
+        <div className="mt-2 text-xs text-amber-700 dark:text-amber-500">
+          Connect your Solana wallet.
+        </div>
+      )}
 
-      {clock.isActive && (
-        <Card title="Your vote">
-          {choices.length === 0
-            ? (
-              <div className="text-sm opacity-70">
-                No choices found in description.
+      <div className="mt-3 flex items-center">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={useRelayer}
+            onChange={(e) => setUseRelayer(e.target.checked)}
+          />
+          Use relayer (recommended)
+          <Help
+            title={"When to use relayer?"}
+            below={true}
+            content={
+              <div>
+                <p>
+                  Relayer submits your vote on-chain and covers all fees.<br />
+                  <br />
+                  Note that relayer can only send a maximum of 3 of your votes
+                  per poll.<br />
+                  <br />
+                  If you prefer, uncheck to submit the transaction directly from
+                  your wallet. However, in this case, tallier will be able to
+                  link your vote to your wallet.
+                </p>
               </div>
-            )
-            : (
-              <div className="space-y-2">
-                {choices.map((c, i) => (
-                  <label
-                    key={i}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      name="choice"
-                      checked={selected === i}
-                      onChange={() => setSelected(i)}
-                    />
-                    <span>{c}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              className={btn(!disabled)}
-              disabled={disabled}
-              onClick={onVoteClick}
-            >
-              {active ? "Cast vote" : "Voting closed"}
-            </button>
-            {stage && <span className="text-sm text-purple-600">{stage}</span>}
-          </div>
-          {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
-          {!useRelayer && !wallet.publicKey && (
-            <div className="mt-2 text-xs text-amber-700 dark:text-amber-500">
-              Connect your Solana wallet.
-            </div>
-          )}
-
-          <div className="mt-3 flex items-center">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={useRelayer}
-                onChange={(e) => setUseRelayer(e.target.checked)}
-              />
-              Use relayer (recommended)
-              <Help
-                title={"When to use relayer?"}
-                below={true}
-                content={
-                  <div>
-                    <p>
-                      Relayer submits your vote on-chain and covers all
-                      fees.<br />
-                      <br />
-                      Note that relayer can only send a maximum of 3 of your
-                      votes per poll.<br />
-                      <br />
-                      If you prefer, uncheck to submit the transaction directly
-                      from your wallet. However, in this case, tallier will be
-                      able to link your vote to your wallet.
-                    </p>
-                  </div>
-                }
-              />
-            </label>
-          </div>
-        </Card>
-      )}
-      {!!poll?.tally && (
-        <ResultsBars
-          title="Results"
-          choices={choices}
-          tally={poll.tally}
-        />
-      )}
-      {clock.isOver && !poll?.tally && (
-        <p>Waiting for tallier to count the votes…</p>
-      )}
-    </div>
+            }
+          />
+        </label>
+      </div>
+    </>
   );
 };
 
@@ -2581,28 +2266,7 @@ type VotesPage = {
   total: number;
 };
 
-function usePollClock(startSec: number, endSec: number) {
-  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
-  useEffect(() => {
-    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const isBefore = now < startSec;
-  const isOver = now >= endSec;
-  const secs = isBefore ? (startSec - now) : (isOver ? 0 : endSec - now);
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  const fmt = (n: number) => String(n).padStart(2, "0");
-  const label = isBefore
-    ? `Starts in ${fmt(h)}:${fmt(m)}:${fmt(s)}`
-    : isOver
-    ? `Ended`
-    : `Ends in ${fmt(h)}:${fmt(m)}:${fmt(s)}`;
-  return { label, isOver, isActive: !isBefore && !isOver };
-}
-
-const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
+export const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
   const wallet = useWallet();
   const KR = useKeyringCtx();
   const connection = new Connection(RPC_URL, { commitment: "confirmed" });
@@ -2622,11 +2286,6 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
   const accountId = keypair
     ? `${keypair.pub[0].toString(16)}:${keypair.pub[1].toString(16)}`
     : "";
-
-  const clock = usePollClock(
-    poll?.voting_start_time ?? 0,
-    poll?.voting_end_time ?? 0,
-  );
 
   useEffect(() => {
     let live = true;
@@ -3043,21 +2702,12 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
     await refreshRemaining();
   }, [store, refreshRemaining]);
 
-  if (KR.locked) return UNLOCK_TO_VIEW;
   if (loading) return <div className="p-4">Loading…</div>;
   if (!poll || !desc) return <div className="p-4">No poll.</div>;
 
   const effectiveTally = clientTally ?? poll?.tally ?? null;
   return (
-    <div className="max-w-xl mx-auto p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">{desc.title}</h2>
-          <div className="text-xs opacity-70">#{pollId}</div>
-        </div>
-        <span className="text-sm opacity-70">{clock.label}</span>
-      </div>
-
+    <>
       {Array.isArray(effectiveTally) && (
         <ResultsBars
           title="Results"
@@ -3066,7 +2716,7 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
         />
       )}
       {!Array.isArray(effectiveTally) && (
-        <div className="mt-4">
+        <div>
           {store && (
             <div className="mt-4">
               {(() => {
@@ -3121,7 +2771,7 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
               To count votes, first initialize the tally.
             </p>
           )}
-          <div className="mt-4 flex items-center gap-2">
+          <div className="mt-3 flex items-center gap-2">
             {!store && (
               <button
                 className={btn(!busy && !!wallet.publicKey)}
@@ -3175,18 +2825,8 @@ const TallyPage: React.FC<{ pollId: bigint }> = ({ pollId }) => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
-};
-
-const VoteRoute: React.FC = () => {
-  const { id } = useParams();
-  return <VotePage pollId={BigInt(id!)} />;
-};
-
-const TallyRoute: React.FC = () => {
-  const { id } = useParams();
-  return <TallyPage pollId={BigInt(id!)} />;
 };
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
@@ -3267,16 +2907,10 @@ const Layout: React.FC<{ setShowAccounts: (showAccounts: boolean) => void }> = (
           style={{ top: headerH, height: `calc(100vh - ${headerH + 1}px)` }}
         >
           <nav className="space-y-1">
-            <NavLink to="/create" className={navItemClass}>
-              Create Poll
+            <NavLink to="/polls" className={navItemClass}>My Polls</NavLink>
+            <NavLink to="/censuses" className={navItemClass}>
+              My Censuses
             </NavLink>
-            <NavLink to="/my/voter" className={navItemClass}>
-              Vote
-            </NavLink>
-            <NavLink to="/my/tallier" className={navItemClass}>
-              Tally
-            </NavLink>
-            <NavLink to="/censuses" className={navItemClass}>Census</NavLink>
           </nav>
 
           {/* Socials footer */}
@@ -3323,28 +2957,18 @@ const Layout: React.FC<{ setShowAccounts: (showAccounts: boolean) => void }> = (
               <div className="flex h-full flex-col">
                 <nav className="space-y-1">
                   <NavLink
-                    to="/create"
+                    to="/polls"
                     className={navItemClass}
                     onClick={() => setOpen(false)}
                   >
-                    Create Poll
+                    My Polls
                   </NavLink>
                   <NavLink
-                    to="/my/voter"
+                    to="/censuses"
                     className={navItemClass}
                     onClick={() => setOpen(false)}
                   >
-                    Vote
-                  </NavLink>
-                  <NavLink
-                    to="/my/tallier"
-                    className={navItemClass}
-                    onClick={() => setOpen(false)}
-                  >
-                    Tally
-                  </NavLink>
-                  <NavLink to="/censuses" className={navItemClass}>
-                    Census
+                    My Censuses
                   </NavLink>
                 </nav>
 
@@ -3406,16 +3030,11 @@ const Inner: React.FC = () => {
                   <Route element={<Layout setShowAccounts={setShowAccounts} />}>
                     <Route
                       path="/"
-                      element={<Navigate to="/create" replace />}
+                      element={<Navigate to="/polls/new" replace />}
                     />
-                    <Route path="/create" element={<PollCreator />} />
-                    <Route path="/my/voter" element={<MyVoterPolls />} />
-                    <Route
-                      path="/my/tallier"
-                      element={<MyCoordinatorPolls />}
-                    />
-                    <Route path="/tally/:id" element={<TallyRoute />} />
-                    <Route path="/poll/:id" element={<VoteRoute />} />
+                    <Route path="/polls" element={<PollListPage />} />
+                    <Route path="/polls/new" element={<PollCreator />} />
+                    <Route path="/polls/:pollId" element={<PollDetailPage />} />
                     <Route path="/censuses" element={<CensusesListPage />} />
                     <Route path="/census/new" element={<CensusCreatePage />} />
                     <Route

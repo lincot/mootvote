@@ -1,24 +1,25 @@
 use actix_cors::Cors;
-use actix_web::{get, web, App, HttpServer, Responder};
+use actix_web::{error::ErrorInternalServerError, get, web, App, HttpServer, Responder};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{hex::Hex, serde_as, DisplayFromStr};
 use sqlx::PgPool;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::SslConfig;
 
 #[derive(Clone)]
 struct AppState {
-    pool: PgPool,
+    pg_pool: PgPool,
 }
 
 pub struct Server {
-    pool: PgPool,
+    pg_pool: PgPool,
 }
 
 impl Server {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+    pub fn new(pg_pool: PgPool) -> Self {
+        Self { pg_pool }
     }
 
     pub async fn execute(
@@ -27,7 +28,9 @@ impl Server {
         ssl_config: SslConfig,
         workers: usize,
     ) -> std::io::Result<()> {
-        let state = AppState { pool: self.pool };
+        let state = AppState {
+            pg_pool: self.pg_pool,
+        };
 
         let mut ssl_builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
         ssl_builder.set_private_key_file(ssl_config.key, SslFiletype::PEM)?;
@@ -40,8 +43,8 @@ impl Server {
                 .wrap(actix_web::middleware::Compress::default())
                 .service(get_poll)
                 .service(list_votes)
-                .service(polls_by_voter)
-                .service(polls_by_coordinator)
+                .service(list_polls)
+                .service(is_voter)
         })
         .bind_openssl(addrs, ssl_builder)?
         .workers(workers)
@@ -86,9 +89,9 @@ async fn get_poll(
         "#,
         poll_id
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&state.pg_pool)
     .await
-    .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
 
     if let Some(p) = rec {
         let out = PollOut {
@@ -148,9 +151,9 @@ async fn list_votes(
         r#"SELECT COUNT(*)::BIGINT FROM votes WHERE poll_id = $1"#,
         poll_id
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&state.pg_pool)
     .await
-    .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?
+    .map_err(|_| ErrorInternalServerError("Database error"))?
     .unwrap_or(0);
 
     let rows = sqlx::query!(
@@ -165,9 +168,9 @@ async fn list_votes(
         after_id,
         limit + 1
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&state.pg_pool)
     .await
-    .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
 
     let items: Vec<_> = rows
         .into_iter()
@@ -193,6 +196,13 @@ async fn list_votes(
     }))
 }
 
+#[derive(Deserialize)]
+enum PollStatus {
+    Active,
+    Upcoming,
+    Ended,
+}
+
 #[serde_as]
 #[derive(Serialize)]
 struct PollItem {
@@ -210,42 +220,102 @@ struct PollPage {
     next_before: Option<u64>,
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct UserPollsQuery {
+    #[serde_as(as = "Option<Hex>")]
+    voter_leaf: Option<[u8; 32]>,
+    #[serde_as(as = "Option<Hex>")]
+    coordinator: Option<[u8; 64]>,
+    status: Option<PollStatus>,
     limit: Option<i64>,
     before: Option<i64>,
 }
 
-#[actix_web::get("/voters/{leaf}/polls")]
-async fn polls_by_voter(
+#[actix_web::get("/polls")]
+async fn list_polls(
     state: web::Data<AppState>,
-    leaf: web::Path<String>,
     q: web::Query<UserPollsQuery>,
-) -> actix_web::Result<impl Responder> {
-    let mut leaf_arr = [0u8; 32];
-    hex::decode_to_slice(&*leaf, &mut leaf_arr)
-        .map_err(|_| actix_web::error::ErrorBadRequest("bad hex"))?;
+) -> actix_web::Result<web::Json<PollPage>> {
     let limit = q.limit.unwrap_or(50).clamp(1, 500);
     let before = q.before.unwrap_or(i64::MAX);
 
+    if q.coordinator.is_none() && q.voter_leaf.is_none() {
+        return Err(actix_web::error::ErrorBadRequest(
+            "provide coordinator and/or voter_leaf",
+        ));
+    }
+
+    let (coord_present, coord_x, coord_y) = if let Some(c) = &q.coordinator {
+        (true, &c[..32], &c[32..])
+    } else {
+        (false, &[0u8; 32][..], &[0u8; 32][..])
+    };
+    let (voter_present, voter_leaf_bytes) = if let Some(v) = &q.voter_leaf {
+        (true, &v[..])
+    } else {
+        (false, &[0u8; 32][..])
+    };
+
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let want_active = matches!(q.status, Some(PollStatus::Active));
+    let want_upcoming = matches!(q.status, Some(PollStatus::Upcoming));
+    let want_ended = matches!(q.status, Some(PollStatus::Ended));
+
+    let skip_active = !want_active;
+    let skip_upcoming = !want_upcoming;
+    let skip_ended = !want_ended;
+
     let rows = sqlx::query!(
         r#"
-        SELECT p.id, p.poll_id, p.title, p.choices, p.voting_start_time,
-               p.voting_end_time, p.description_url, p.census_url
-        FROM voter_polls vp
-        JOIN polls p ON p.poll_id = vp.poll_id
-            AND census_valid = TRUE AND title IS NOT NULL
-        WHERE vp.key_hash = $1 AND p.id < $2
+        SELECT
+          p.id,
+          p.poll_id,
+          p.title,
+          p.choices,
+          p.voting_start_time,
+          p.voting_end_time,
+          p.description_url,
+          p.census_url
+        FROM polls p
+        WHERE
+          p.census_valid = TRUE
+          AND p.title IS NOT NULL
+          AND p.id < $10
+          AND (
+                ($1 AND p.coord_x = $2 AND p.coord_y = $3)
+                OR
+                ($4 AND EXISTS (
+                     SELECT 1 FROM voter_polls vp
+                     WHERE vp.poll_id = p.poll_id
+                       AND vp.key_hash = $5
+                ))
+          )
+          AND ($7 OR (p.voting_start_time <= $6 AND p.voting_end_time >  $6))
+          AND ($8 OR (p.voting_start_time > $6))
+          AND ($9 OR (p.voting_end_time <= $6))
         ORDER BY p.id DESC
-        LIMIT $3
+        LIMIT $11
         "#,
-        &leaf_arr,
+        coord_present,
+        coord_x,
+        coord_y,
+        voter_present,
+        voter_leaf_bytes,
+        now as i64,
+        skip_active,
+        skip_upcoming,
+        skip_ended,
         before,
-        limit + 1
+        limit + 1,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&state.pg_pool)
     .await
-    .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?;
+    .map_err(|_| ErrorInternalServerError("Database error"))?;
 
     let next_before = if rows.len() > limit as usize {
         Some(rows[limit as usize - 1].id as u64)
@@ -271,69 +341,30 @@ async fn polls_by_voter(
     Ok(web::Json(PollPage { items, next_before }))
 }
 
-#[actix_web::get("/coordinators/{xy}/polls")]
-async fn polls_by_coordinator(
+#[serde_as]
+#[derive(Deserialize)]
+struct IsVoterQuery {
+    #[serde_as(as = "Hex")]
+    leaf: [u8; 32],
+}
+
+#[actix_web::get("/polls/{poll_id}/is_voter")]
+async fn is_voter(
     state: web::Data<AppState>,
-    path: web::Path<String>,
-    q: web::Query<UserPollsQuery>,
-) -> actix_web::Result<impl Responder> {
-    let mut xy_arr = [0u8; 64];
-    hex::decode_to_slice(&*path, &mut xy_arr)
-        .map_err(|_| actix_web::error::ErrorBadRequest("bad hex"))?;
-    let limit = q.limit.unwrap_or(50).clamp(1, 500);
-    let before = q.before.unwrap_or(i64::MAX);
+    path: web::Path<u64>,
+    q: web::Query<IsVoterQuery>,
+) -> actix_web::Result<&'static str> {
+    let poll_id = path.into_inner();
 
-    // let total = sqlx::query_scalar!(r#"SELECT COUNT(*)::BIGINT FROM polls"#,)
-    //     .fetch_one(&state.pool)
-    //     .await
-    //     .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?
-    //     .unwrap_or(0) as u64;
-
-    let rows = sqlx::query!(
-        r#"
-        SELECT id, poll_id, title, choices, voting_start_time, voting_end_time,
-               description_url, census_url
-        FROM polls
-        WHERE coord_x=$1 AND coord_y=$2 AND id < $3
-            AND census_valid = TRUE AND title IS NOT NULL
-        ORDER BY id DESC
-        LIMIT $4
-        "#,
-        &xy_arr[..32],
-        &xy_arr[32..],
-        before,
-        // total as i64 - after,
-        limit + 1
+    let is_voter = sqlx::query_scalar!(
+        r#"SELECT 1 FROM voter_polls WHERE poll_id = $1 AND key_hash = $2"#,
+        poll_id as i64,
+        &q.leaf[..]
     )
-    .fetch_all(&state.pool)
+    .fetch_optional(&state.pg_pool)
     .await
-    .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?;
+    .map_err(|_| actix_web::error::ErrorInternalServerError("db"))?
+    .is_some();
 
-    // let next_before = rows
-    //     .iter()
-    //     .take(limit as usize)
-    //     .last()
-    //     .map(|row| row.id as u64);
-    let next_before = if rows.len() > limit as usize {
-        Some(rows[limit as usize - 1].id as u64)
-    } else {
-        None
-    };
-    let items = rows
-        .into_iter()
-        .take(limit as usize)
-        .map(|r| PollItem {
-            poll_id: r.poll_id as u64,
-            voting_start_time: r.voting_start_time as u64,
-            voting_end_time: r.voting_end_time as u64,
-            title: r
-                .title
-                .expect("title expected to be not null as per query constraint"),
-            choices: r
-                .choices
-                .expect("choices are expected to be set atomically with title"),
-        })
-        .collect();
-
-    Ok(web::Json(PollPage { items, next_before }))
+    Ok(if is_voter { "true" } else { "false" })
 }

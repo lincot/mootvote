@@ -91,7 +91,7 @@ export default function CensusesListPage() {
   return (
     <div className="max-w-xl mx-auto p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Censuses</h2>
+        <h2 className="text-xl font-semibold">My Censuses</h2>
         <button
           type="button"
           onClick={goCreate}
@@ -104,20 +104,25 @@ export default function CensusesListPage() {
       {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
       {loading && <div className="text-sm opacity-70 mb-2">Loading…</div>}
 
-      <div className="space-y-2 divide-y">
+      <div className="rounded-xl border divide-y dark:divide-neutral-800 overflow-hidden">
         {page?.items.map((it) => (
           <Link
             to={`/census/${it.id}`}
             className="block rounded-xl border p-3 border-gray-200 dark:border-neutral-800
                   hover:bg-neutral-50 dark:hover:bg-neutral-800 transition"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div className="font-medium">{it.title}</div>
-              {it.is_creator && (
-                <span className="ml-3 text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                  Creator
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                {it.is_creator && (
+                  <span className="ml-3 text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                    Creator
+                  </span>
+                )}
+                <div className="shrink-0 text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 hidden sm:block">
+                  →
+                </div>
+              </div>
             </div>
           </Link>
         ))}
