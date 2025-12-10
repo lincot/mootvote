@@ -17,7 +17,7 @@ mod vk;
 declare_id!("MootG8ueTooVorJJq3kxdXLLg59ZW6phaHpoWeSySqB");
 
 #[program]
-pub mod anon_vote {
+pub mod mootvote {
     use super::*;
 
     #[instruction(discriminator = 0u8)]

@@ -20,7 +20,7 @@ import {
   vote,
   voteWithRelayer,
   withdrawPoll,
-} from "@lincot/anon-vote-sdk";
+} from "@lincot/mootvote-sdk";
 import {
   fetchRelayerConfig,
   fetchRelayerState,
@@ -222,7 +222,7 @@ describe("ZK Relayer", () => {
   });
 });
 
-describe("Anon Vote", () => {
+describe("MootVote", () => {
   const tempAdmin = new Keypair();
 
   const pollId = 5n;

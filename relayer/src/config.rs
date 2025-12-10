@@ -19,7 +19,7 @@ impl RelayerConfig {
         debug!("Reading config from path {:?}", config_path);
         let config = Config::builder()
             .add_source(File::from(config_path))
-            .add_source(config::Environment::with_prefix("RELAYER").separator("_"))
+            .add_source(config::Environment::with_prefix("MV_RELAYER").separator("_"))
             .build()
             .expect("Failed to build envs");
 

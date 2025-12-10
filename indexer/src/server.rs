@@ -232,7 +232,7 @@ struct UserPollsQuery {
     before: Option<i64>,
 }
 
-#[actix_web::get("/polls")]
+#[get("/polls")]
 async fn list_polls(
     state: web::Data<AppState>,
     q: web::Query<UserPollsQuery>,
@@ -348,7 +348,7 @@ struct IsVoterQuery {
     leaf: [u8; 32],
 }
 
-#[actix_web::get("/polls/{poll_id}/is_voter")]
+#[get("/polls/{poll_id}/is_voter")]
 async fn is_voter(
     state: web::Data<AppState>,
     path: web::Path<u64>,

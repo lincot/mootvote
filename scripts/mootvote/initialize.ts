@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet.js";
-import { initialize, toTransaction } from "@lincot/anon-vote-sdk";
+import { initialize, toTransaction } from "@lincot/mootvote-sdk";
 import { expect } from "chai";
 import { sendAndConfirmVersionedTx } from "../../helpers/utils.ts";
 

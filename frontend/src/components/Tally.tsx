@@ -7,7 +7,7 @@ import {
   cuLimitInstruction,
   finishTally,
   tallyBatch,
-} from "@lincot/anon-vote-sdk";
+} from "@lincot/mootvote-sdk";
 import { HASH0, toBytesBE32, toHex32 } from "../../../helpers/utils.ts";
 import { mulPointEscalar } from "@zk-kit/baby-jubjub";
 import {
@@ -39,7 +39,7 @@ type LeafData = {
 };
 
 const TALLY_DB_KEY = (pollId: bigint, accountId: string) =>
-  `anonvote:tally:v1:${pollId}:${accountId}`;
+  `mootvote:tally:v1:${pollId}:${accountId}`;
 
 type TallyStore = {
   pollId: bigint;

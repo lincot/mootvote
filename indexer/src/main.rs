@@ -81,7 +81,7 @@ async fn main() {
 
     let solana_reader = SolanaReader::new(
         rpc_pool,
-        anon_vote::ID,
+        mootvote::ID,
         tx_read_from,
         config.solana.reader_concurrency,
         Duration::from_secs(3),

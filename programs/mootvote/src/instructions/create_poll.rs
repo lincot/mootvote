@@ -5,7 +5,7 @@ use zk_relayer::{
     state::ZkRelayerConfig,
 };
 
-use crate::{error::AnonVoteError, events::*, state::*, utils::system_transfer};
+use crate::{error::MootVoteError, events::*, state::*, utils::system_transfer};
 
 /// Maximum number of messages per voter per relayer.
 const MSG_LIMIT: u64 = 3;
@@ -69,7 +69,7 @@ pub fn create_poll(
     require!(
         voting_end_time > voting_start_time
             && voting_end_time - voting_start_time <= MAX_POLL_DURATION,
-        AnonVoteError::PollTooLong
+        MootVoteError::PollTooLong
     );
 
     poll.id = id;

@@ -1,8 +1,8 @@
 import { IdlTypes } from "@coral-xyz/anchor";
-import { AnonVote } from "./idl/anon_vote";
+import { Mootvote } from "./idl/mootvote";
 
-export type CompressedProof = IdlTypes<AnonVote>["compressedProof"];
-export type Point = IdlTypes<AnonVote>["point"];
-export type Poll = IdlTypes<AnonVote>["poll"];
-export type Tally = IdlTypes<AnonVote>["tally"];
-export type PlatformConfig = IdlTypes<AnonVote>["platformConfig"];
+export type CompressedProof = IdlTypes<Mootvote>["compressedProof"];
+export type Point = IdlTypes<Mootvote>["point"];
+export type Poll = IdlTypes<Mootvote>["poll"];
+export type Tally = IdlTypes<Mootvote>["tally"];
+export type PlatformConfig = IdlTypes<Mootvote>["platformConfig"];

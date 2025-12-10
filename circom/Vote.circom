@@ -45,8 +45,8 @@ template Vote(DEPTH) {
     );
     root === censusRoot;
 
-    // name = "AnonVote"; sum([ord(ch) << (8 * (len(name) - 1 - i)) for i, ch in enumerate(name)])
-    var PLATFORM_NAME = 4714828379590718565;
+    // name = "MootVote"; sum([ord(ch) << (8 * (len(name) - 1 - i)) for i, ch in enumerate(name)])
+    var PLATFORM_NAME = 5579801008792368229;
     signal sigValid <== EdDSAPoseidonVerifier()(
         publicKeyX <== voterPk[0],
         publicKeyY <== voterPk[1],

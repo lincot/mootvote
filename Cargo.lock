@@ -572,53 +572,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anon-vote"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
- "groth16-solana",
- "solana-bn254",
- "solana-invoke",
- "solana-poseidon",
- "solana-system-interface",
- "zk-relayer",
-]
-
-[[package]]
-name = "anon-vote-indexer"
-version = "0.1.0"
-dependencies = [
- "actix-cors",
- "actix-web",
- "anchor-lang",
- "anon-vote",
- "base64 0.21.7",
- "bincode",
- "bytemuck",
- "bytes",
- "clap",
- "config",
- "dotenvy",
- "futures-util",
- "hex",
- "openssl",
- "reqwest",
- "serde",
- "serde_json",
- "serde_with",
- "solana-client",
- "solana-sdk",
- "solana-tools",
- "solana-transaction-status",
- "sqlx",
- "thiserror 2.0.16",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-subscriber 0.3.20",
-]
-
-[[package]]
 name = "anstream"
 version = "0.6.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3889,6 +3842,53 @@ dependencies = [
  "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "mootvote"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "groth16-solana",
+ "solana-bn254",
+ "solana-invoke",
+ "solana-poseidon",
+ "solana-system-interface",
+ "zk-relayer",
+]
+
+[[package]]
+name = "mootvote-indexer"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-web",
+ "anchor-lang",
+ "base64 0.21.7",
+ "bincode",
+ "bytemuck",
+ "bytes",
+ "clap",
+ "config",
+ "dotenvy",
+ "futures-util",
+ "hex",
+ "mootvote",
+ "openssl",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "solana-client",
+ "solana-sdk",
+ "solana-tools",
+ "solana-transaction-status",
+ "sqlx",
+ "thiserror 2.0.16",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-subscriber 0.3.20",
 ]
 
 [[package]]

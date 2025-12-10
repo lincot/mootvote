@@ -6,11 +6,11 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-anon-vote = "MootG8ueTooVorJJq3kxdXLLg59ZW6phaHpoWeSySqB"
+mootvote = "MootG8ueTooVorJJq3kxdXLLg59ZW6phaHpoWeSySqB"
 zk-relayer = "Re1aDNwUYroFdKmsPDKnZaQPxxKtDBvwNctH1w9ow6j"
 
 [programs.devnet]
-anon-vote = "MootG8ueTooVorJJq3kxdXLLg59ZW6phaHpoWeSySqB"
+mootvote = "MootG8ueTooVorJJq3kxdXLLg59ZW6phaHpoWeSySqB"
 zk-relayer = "Re1aDNwUYroFdKmsPDKnZaQPxxKtDBvwNctH1w9ow6j"
 
 [test.validator]
@@ -29,12 +29,12 @@ wallet = "~/.config/solana/id.json"
 test = """
 cp target/idl/zk_relayer.json target/types/zk_relayer.ts ts-sdk-relayer/src/idl/ && \
 pnpm build:sdk-relayer && \
-cp target/idl/anon_vote.json target/types/anon_vote.ts ts-sdk/src/idl/ && \
+cp target/idl/mootvote.json target/types/mootvote.ts ts-sdk/src/idl/ && \
 pnpm build:sdk && \
 pnpm ts-mocha -p ./tsconfig.json --no-timeouts --slow 0 --exit tests/*.test.ts
 """
 
 fetch-relayer-config = "pnpm ts-node scripts/zk-relayer/fetchConfig.ts"
-initialize-anon-vote = "pnpm ts-node scripts/anon-vote/initialize.ts"
+initialize-mootvote = "pnpm ts-node scripts/mootvote/initialize.ts"
 initialize-relayer = "pnpm ts-node scripts/zk-relayer/initialize.ts"
 update-relayer-config = "pnpm ts-node scripts/zk-relayer/updateConfig.ts"

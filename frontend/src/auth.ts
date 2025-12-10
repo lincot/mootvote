@@ -1,4 +1,4 @@
-import { PLATFORM_NAME } from "@lincot/anon-vote-sdk";
+import { PLATFORM_NAME } from "@lincot/mootvote-sdk";
 import { getEddsa, getPoseidon } from "./circomMemo";
 
 const AUTH_DOMAIN = 1635087464n;

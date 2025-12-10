@@ -1,5 +1,5 @@
 {
-  "name": "anon-vote-frontend",
+  "name": "mootvote-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,7 +13,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@irys/web-upload": "^0.0.15",
     "@irys/web-upload-solana": "^0.1.8",
-    "@lincot/anon-vote-sdk": "workspace:*",
+    "@lincot/mootvote-sdk": "workspace:*",
     "@solana/wallet-adapter-base": "^0.9",
     "@solana/wallet-adapter-react": "^0.15",
     "@solana/wallet-adapter-react-ui": "^0.9",

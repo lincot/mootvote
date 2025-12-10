@@ -1,4 +1,4 @@
-use crate::{error::AnonVoteError, state::*, vk::VK_TALLY};
+use crate::{error::MootVoteError, state::*, vk::VK_TALLY};
 use anchor_lang::prelude::*;
 use groth16_solana::groth16::Groth16Verifier;
 
@@ -19,7 +19,7 @@ pub fn tally_batch(
 
     let proof = proof
         .decompress()
-        .map_err(|_| AnonVoteError::ProofDecompressionError)?;
+        .map_err(|_| MootVoteError::ProofDecompressionError)?;
     let public_inputs = [
         tally.tally_hash,
         root_new,
@@ -29,8 +29,8 @@ pub fn tally_batch(
         tally.cumulative_msg_hash,
     ];
     let mut v = Groth16Verifier::<6>::new(&proof.a, &proof.b, &proof.c, &public_inputs, &VK_TALLY)
-        .map_err(|_| AnonVoteError::InvalidProof)?;
-    v.verify().map_err(|_| AnonVoteError::InvalidProof)?;
+        .map_err(|_| MootVoteError::InvalidProof)?;
+    v.verify().map_err(|_| MootVoteError::InvalidProof)?;
 
     tally.root = root_new;
     tally.cumulative_msg_hash = cumulative_msg_hash_new;

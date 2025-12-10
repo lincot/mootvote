@@ -16,9 +16,9 @@ import { get as idbGet, set as idbSet } from "idb-keyval";
 import { decryptFromBlob, type EncryptedBlob, encryptToBlob } from "./blob.ts";
 import { getBabyjub, getEddsa, getPoseidon } from "./circomMemo.ts";
 
-const KEYRING_DB_KEY = "anonvote:keyring:v1";
-const ACTIVE_IDX_KEY = "anonvote:keyring:active:v1";
-const REVO_DB_KEY = "anonvote:revo:v1";
+const KEYRING_DB_KEY = "mootvote:keyring:v1";
+const ACTIVE_IDX_KEY = "mootvote:keyring:active:v1";
+const REVO_DB_KEY = "mootvote:revo:v1";
 
 export type BabyJubKeypair = {
   name: string;

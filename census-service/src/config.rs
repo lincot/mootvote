@@ -14,7 +14,7 @@ impl IndexerConfig {
         debug!("Reading config from path {:?}", config_path);
         let config = Config::builder()
             .add_source(File::from(config_path))
-            .add_source(config::Environment::with_prefix("CENSUS_SERVICE").separator("_"))
+            .add_source(config::Environment::with_prefix("MV_CENSUS").separator("_"))
             .build()
             .expect("Failed to build envs");
 

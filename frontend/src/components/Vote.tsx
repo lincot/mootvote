@@ -11,7 +11,7 @@ import {
   PROGRAM_ID,
   serializeVoteData,
   vote,
-} from "@lincot/anon-vote-sdk";
+} from "@lincot/mootvote-sdk";
 import { fetchRelayerConfig } from "@lincot/zk-relayer-sdk";
 import { getMerkleProof } from "../../../helpers/merkletree.ts";
 import { compressProof } from "../../../helpers/compressSolana.ts";

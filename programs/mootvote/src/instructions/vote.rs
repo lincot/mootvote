@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use groth16_solana::groth16::Groth16Verifier;
 use zk_relayer::state::RelayerState;
 
-use crate::{error::AnonVoteError, events::VoteEvent, state::*, utils::*, vk::VK_VOTE};
+use crate::{error::MootVoteError, events::VoteEvent, state::*, utils::*, vk::VK_VOTE};
 
 const RELAYER_PROGRAM: Pubkey = pubkey!("Re1aDNwUYroFdKmsPDKnZaQPxxKtDBvwNctH1w9ow6j");
 
@@ -121,7 +121,7 @@ fn vote_common(
     let now = Clock::get()?.unix_timestamp as u64;
     require!(
         (poll.voting_start_time..=poll.voting_end_time).contains(&now),
-        AnonVoteError::BadTime
+        MootVoteError::BadTime
     );
 
     let mut preimage = [&eph_pk.x[..]; 10];
@@ -132,18 +132,18 @@ fn vote_common(
     for (i, c) in ciphertext.iter().enumerate() {
         preimage[3 + i] = c;
     }
-    let msg_hash = poseidon(&preimage).map_err(|_| AnonVoteError::Poseidon)?;
+    let msg_hash = poseidon(&preimage).map_err(|_| MootVoteError::Poseidon)?;
 
     if let Some(msg_hash_from_relayer) = msg_hash_from_relayer {
         require!(
             msg_hash == msg_hash_from_relayer,
-            AnonVoteError::RelayerMsgHashMismatch
+            MootVoteError::RelayerMsgHashMismatch
         );
     }
 
     let proof = proof
         .decompress()
-        .map_err(|_| AnonVoteError::ProofDecompressionError)?;
+        .map_err(|_| MootVoteError::ProofDecompressionError)?;
     let public_inputs = [
         msg_hash,
         relayer_nu_hash,
@@ -155,11 +155,11 @@ fn vote_common(
         relayer_id,
     ];
     let mut v = Groth16Verifier::<8>::new(&proof.a, &proof.b, &proof.c, &public_inputs, &VK_VOTE)
-        .map_err(|_| AnonVoteError::InvalidProof)?;
-    v.verify().map_err(|_| AnonVoteError::InvalidProof)?;
+        .map_err(|_| MootVoteError::InvalidProof)?;
+    v.verify().map_err(|_| MootVoteError::InvalidProof)?;
 
     poll.cumulative_msg_hash =
-        poseidon(&[&poll.cumulative_msg_hash, &msg_hash]).map_err(|_| AnonVoteError::Poseidon)?;
+        poseidon(&[&poll.cumulative_msg_hash, &msg_hash]).map_err(|_| MootVoteError::Poseidon)?;
 
     emit!(VoteEvent {
         poll_id: poll.id,

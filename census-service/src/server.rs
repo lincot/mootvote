@@ -16,7 +16,7 @@ use tracing::info;
 
 use crate::config::SslConfig;
 
-const PLATFORM_NAME: u64 = 4714828379590718565;
+const PLATFORM_NAME: u64 = 5579801008792368229;
 // name = "auth"; sum([ord(ch) << (8 * (len(name) - 1 - i)) for i, ch in enumerate(name)])
 const AUTH_DOMAIN: u64 = 1635087464;
 

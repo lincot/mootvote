@@ -1,7 +1,7 @@
 {
-  "name": "@lincot/anon-vote-sdk",
+  "name": "@lincot/mootvote-sdk",
   "version": "0.1.0",
-  "description": "Anon Vote SDK",
+  "description": "MootVote SDK",
   "type": "module",
   "main": "./dist/index.cjs",
   "browser": "./dist/index.mjs",

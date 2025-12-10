@@ -17,8 +17,8 @@ import {
   createPoll,
   cuLimitInstruction,
   type InstructionWithCu,
-  setProvider as setAnonProvider,
-} from "@lincot/anon-vote-sdk";
+  setProvider as setMootProvider,
+} from "@lincot/mootvote-sdk";
 import { getMerkleRoot } from "../../../helpers/merkletree.ts";
 import { useKeyringCtx } from "../keyring.tsx";
 import { CENSUS_URL, CLUSTER, RPC_URL } from "../env.tsx";
@@ -158,7 +158,7 @@ export const PollCreatePage: React.FC<{}> = () => {
       wallet as any,
       anchor.AnchorProvider.defaultOptions(),
     );
-    setAnonProvider(provider);
+    setMootProvider(provider);
   }, [wallet.publicKey, connection]);
 
   const {
@@ -217,7 +217,7 @@ export const PollCreatePage: React.FC<{}> = () => {
           {
             data: Buffer.from(data.censusBytes),
             contentType: "application/octet-stream",
-            tags: [{ name: "App-Name", value: "anon-vote-census" }, {
+            tags: [{ name: "App-Name", value: "mootvote-census" }, {
               name: "Leaves",
               value: String(data.censusCount),
             }],

@@ -16,7 +16,7 @@ impl IndexerConfig {
         debug!("Reading config from path {:?}", config_path);
         let config = Config::builder()
             .add_source(File::from(config_path))
-            .add_source(config::Environment::with_prefix("AV").separator("_"))
+            .add_source(config::Environment::with_prefix("MV_INDEXER").separator("_"))
             .build()
             .expect("Failed to build envs");
 

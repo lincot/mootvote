@@ -52,7 +52,7 @@ export const Layout: React.FC<
             >
               ☰
             </button>
-            <h1 className="text-xl font-bold leading-none">AnonVote</h1>
+            <h1 className="text-xl font-bold leading-none">MootVote</h1>
 
             {CLUSTER === "devnet" && (
               <span

@@ -1,4 +1,4 @@
-use anon_vote::events::{CreatePollEvent, FinishTallyEvent, VoteEvent};
+use mootvote::events::{CreatePollEvent, FinishTallyEvent, VoteEvent};
 use core::mem::transmute;
 use sqlx::{postgres::PgQueryResult, PgPool, Postgres, Transaction};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};

@@ -5,7 +5,7 @@
   "dependencies": {
     "circomkit": "^0.3.4",
     "circomlibjs": "^0.1.7",
-    "@lincot/anon-vote-sdk": "workspace:*",
+    "@lincot/mootvote-sdk": "workspace:*",
     "@lincot/zk-relayer-sdk": "workspace:*",
     "@coral-xyz/anchor": "^0.31.1",
     "@iden3/js-crypto": "^1.3.1",
@@ -38,7 +38,7 @@
     "exportVk": "ts-node scripts/exportVk.ts",
     "genExample": "ts-node scripts/genExample.ts",
     "genKey": "ts-node scripts/genKey.ts",
-    "build:sdk": "pnpm --filter @lincot/anon-vote-sdk build",
+    "build:sdk": "pnpm --filter @lincot/mootvote-sdk build",
     "build:sdk-relayer": "pnpm --filter @lincot/zk-relayer-sdk build"
   }
 }

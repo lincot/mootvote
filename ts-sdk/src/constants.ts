@@ -1,9 +1,9 @@
 import { PublicKey } from "@solana/web3.js";
-import anonVoteIdl from "./idl/anon_vote.json";
+import mootVoteIdl from "./idl/mootvote.json";
 
-export const PROGRAM_ID = new PublicKey(anonVoteIdl.address);
+export const PROGRAM_ID = new PublicKey(mootVoteIdl.address);
 
-export const PLATFORM_NAME = 4714828379590718565n;
+export const PLATFORM_NAME = 5579801008792368229n;
 
 export const PLATFORM_CONFIG = PublicKey.findProgramAddressSync(
   [Buffer.from("PLATFORM_CONFIG")],

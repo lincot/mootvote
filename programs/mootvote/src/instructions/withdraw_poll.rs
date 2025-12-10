@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{error::AnonVoteError, state::*, utils::transfer};
+use crate::{error::MootVoteError, state::*, utils::transfer};
 
 #[derive(Accounts)]
 pub struct WithdrawPoll<'info> {
@@ -16,7 +16,7 @@ pub fn withdraw_poll(ctx: Context<WithdrawPoll>) -> Result<()> {
     let poll = &ctx.accounts.poll;
 
     let now = Clock::get()?.unix_timestamp as u64;
-    require!(now >= poll.voting_end_time, AnonVoteError::BadTime);
+    require!(now >= poll.voting_end_time, MootVoteError::BadTime);
 
     let rent = Rent::get()?.minimum_balance(AsRef::<AccountInfo>::as_ref(poll).data_len());
     transfer(poll.as_ref(), fee_destination, poll.get_lamports() - rent)?;

@@ -1,4 +1,4 @@
-use anon_vote::events::{CreatePollEvent, FinishTallyEvent, VoteEvent};
+use mootvote::events::{CreatePollEvent, FinishTallyEvent, VoteEvent};
 use solana_client::rpc_client::SerializableTransaction;
 use solana_tools::solana_logs::solana_event_listener::LogsBunch;
 use solana_transaction_status::option_serializer::OptionSerializer;
@@ -66,7 +66,7 @@ impl<T: Event> EventProcessor<T> {
                 logs: logs.clone(),
                 slot: tx.slot,
             };
-            self.on_logs(logs_bunch, anon_vote::ID);
+            self.on_logs(logs_bunch, mootvote::ID);
         }
     }
 }

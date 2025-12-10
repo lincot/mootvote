@@ -26,16 +26,16 @@ pub fn finish_tally(ctx: Context<FinishTally>, tally: Vec<u64>, tally_salt: u64)
     let poll = &mut ctx.accounts.poll;
 
     let now = Clock::get()?.unix_timestamp as u64;
-    require!(now > poll.voting_end_time, AnonVoteError::BadTime);
+    require!(now > poll.voting_end_time, MootVoteError::BadTime);
 
     require!(
         tally.len() == poll.n_choices as usize,
-        AnonVoteError::IncorrectTally
+        MootVoteError::IncorrectTally
     );
 
     require!(
         tally_acc.cumulative_msg_hash == poll.cumulative_msg_hash,
-        AnonVoteError::IncorrectTally
+        MootVoteError::IncorrectTally
     );
 
     let mut preimage = Vec::with_capacity(tally.len() + 1);
@@ -45,8 +45,8 @@ pub fn finish_tally(ctx: Context<FinishTally>, tally: Vec<u64>, tally_salt: u64)
     preimage.extend(raw_tally_u128.iter().map(|x| x.as_slice()));
     preimage.extend(repeat(&[0; 32][..]).take(MAX_CHOICES - poll.n_choices as usize));
     require!(
-        poseidon(&preimage).map_err(|_| AnonVoteError::Poseidon)? == tally_acc.tally_hash,
-        AnonVoteError::IncorrectTally
+        poseidon(&preimage).map_err(|_| MootVoteError::Poseidon)? == tally_acc.tally_hash,
+        MootVoteError::IncorrectTally
     );
 
     poll.tally = tally.clone();
