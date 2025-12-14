@@ -1,7 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet.js";
 import { toTransaction, updateConfig } from "@lincot/zk-relayer-sdk";
-import { expect } from "chai";
 import { sendAndConfirmVersionedTx } from "../../helpers/utils.ts";
 import { PublicKey } from "@solana/web3.js";
 

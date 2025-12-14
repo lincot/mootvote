@@ -8,7 +8,6 @@ use tracing::debug;
 pub(crate) struct IndexerConfig {
     pub addrs: String,
     pub solana: SolanaReaderConfig,
-    pub ssl: SslConfig,
 }
 
 impl IndexerConfig {
@@ -31,10 +30,4 @@ pub(crate) struct SolanaReaderConfig {
     pub read_rpcs: Vec<RpcEntry>,
     pub write_rpcs: Vec<RpcEntry>,
     pub reader_concurrency: usize,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct SslConfig {
-    pub key: PathBuf,
-    pub cert: PathBuf,
 }

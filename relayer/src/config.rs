@@ -10,7 +10,6 @@ use tracing::debug;
 pub(crate) struct RelayerConfig {
     pub addrs: String,
     pub solana: SolanaConfig,
-    pub ssl: SslConfig,
     pub rocksdb_path: String,
 }
 
@@ -19,7 +18,7 @@ impl RelayerConfig {
         debug!("Reading config from path {:?}", config_path);
         let config = Config::builder()
             .add_source(File::from(config_path))
-            .add_source(config::Environment::with_prefix("MV_RELAYER").separator("_"))
+            .add_source(config::Environment::with_prefix("RELAYER").separator("_"))
             .build()
             .expect("Failed to build envs");
 
@@ -35,10 +34,4 @@ pub(crate) struct SolanaConfig {
     pub keypair: Keypair,
     pub read_rpcs: Vec<RpcEntry>,
     pub write_rpcs: Vec<RpcEntry>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct SslConfig {
-    pub key: PathBuf,
-    pub cert: PathBuf,
 }

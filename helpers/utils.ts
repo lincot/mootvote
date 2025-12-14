@@ -14,7 +14,7 @@ import {
 import * as anchor from "@coral-xyz/anchor";
 import { AnchorProvider } from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet.js";
-import { BN } from "bn.js";
+import BN from "bn.js";
 
 export function setupTests(): { provider: AnchorProvider; payer: Keypair } {
   const provider = AnchorProvider.env();

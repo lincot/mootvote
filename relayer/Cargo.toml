@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-actix-cors = "0.7"
-actix-web = { version = "4", features = ["openssl"] }
+actix-web = "4"
 anchor-lang = "0.31.1"
 anyhow = "1"
 ark-serialize = "0.5"
@@ -15,7 +14,6 @@ config = "0.14"
 dashmap = "5.5"
 dotenvy = "0.15"
 hex = "0.4"
-openssl = "0.10"
 rocksdb = "0.24"
 ruint = "1.17.0"
 serde_json = "1"

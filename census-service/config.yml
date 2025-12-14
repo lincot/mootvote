@@ -1,4 +1,4 @@
-addrs: "0.0.0.0:8445"
+addrs: "0.0.0.0:8081"
 
 ssl:
     key: "key.pem"

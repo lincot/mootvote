@@ -1,4 +1,4 @@
-addrs: "0.0.0.0:8444"
+addrs: "0.0.0.0:8082"
 
 solana:
     read_rpcs:
@@ -8,9 +8,5 @@ solana:
         -   url: https://api.devnet.solana.com
             ratelimit: 4 # requests per second
     reader_concurrency: 32
-
-ssl:
-    key: "key.pem"
-    cert: "cert.pem"
 
 rocksdb_path: "rocksdb"

@@ -35,10 +35,6 @@ anchor test
 or with the indexer:
 
 ```sh
-openssl req -x509 -newkey rsa:4096 -nodes -keyout key.pem -out cert.pem -days 365 -subj '/CN=localhost'
-```
-
-```sh
 anchor build
 solana-test-validator \
   --reset \
@@ -59,4 +55,39 @@ mkdir build/Relay/Relay_cpp/cpp_dat
 cp build/Relay/Relay_cpp/Relay.* build/Relay/Relay_cpp/cpp_dat/
 cd relayer
 cargo build --release
+```
+
+## testing over nginx
+
+There is an HMR-compatible nginx configuration at `nginx/dev/nginx.conf`
+ready to be put to `/etc/nginx/nginx.conf`. Then launch nginx and the services:
+
+```sh
+cd frontend
+pnpm dev
+```
+
+```sh
+cd indexer
+cargo run -- --config config.yml
+```
+
+```sh
+cd census-service
+cargo run -- --config config.yml
+```
+
+```sh
+cd relayer
+RELAYER_SOLANA_KEYPAIR=YOURKEYPAIRBASE58 cargo run -- --config config.yml
+```
+
+And proceed to <http://127.0.0.1>.
+
+## running relayer
+
+```sh
+RUSTFLAGS="-Lnative=target/release/build/rust-rapidsnark-*/out/rapidsnark/x86_64/" cargo build --release
+
+LD_LIBRARY_PATH="$LD_LIBRARY_PATH:target/release/build/zk-relayer-backend-*/out/witnesscalc/package/lib/:target/release/build/rust-rapidsnark-*/out/rapidsnark/x86_64/" RELAYER_SOLANA_KEYPAIR=YOURKEYPAIRBASE58 target/release/zk-relayer-backend --config config.yml
 ```

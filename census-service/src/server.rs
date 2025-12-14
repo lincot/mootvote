@@ -1,4 +1,3 @@
-use actix_cors::Cors;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::{delete, get, post, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use babyjubjub_rs::Fr;
@@ -6,15 +5,12 @@ use babyjubjub_rs::{verify, Point, Signature};
 use ff_ce::PrimeField;
 use light_poseidon::{Poseidon, PoseidonBytesHasher};
 use num_bigint::{BigInt, Sign};
-use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use rand::{rngs::OsRng, TryRngCore};
 use ruint::aliases::U256;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::info;
-
-use crate::config::SslConfig;
 
 const PLATFORM_NAME: u64 = 5579801008792368229;
 // name = "auth"; sum([ord(ch) << (8 * (len(name) - 1 - i)) for i, ch in enumerate(name)])
@@ -34,24 +30,14 @@ impl Server {
         Self { pg_pool }
     }
 
-    pub async fn execute(
-        self,
-        addrs: &str,
-        ssl_config: SslConfig,
-        workers: usize,
-    ) -> std::io::Result<()> {
+    pub async fn execute(self, addrs: &str, workers: usize) -> std::io::Result<()> {
         let state = AppState {
             pg_pool: self.pg_pool,
         };
 
-        let mut ssl_builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
-        ssl_builder.set_private_key_file(ssl_config.key, SslFiletype::PEM)?;
-        ssl_builder.set_certificate_chain_file(ssl_config.cert)?;
-
         HttpServer::new(move || {
             App::new()
                 .app_data(web::Data::new(state.clone()))
-                .wrap(Cors::permissive())
                 .wrap(actix_web::middleware::Compress::default())
                 .service(create_census)
                 .service(list_censuses)
@@ -62,7 +48,7 @@ impl Server {
                 .service(claim_member)
                 .service(export_census)
         })
-        .bind_openssl(addrs, ssl_builder)?
+        .bind(addrs)?
         .workers(workers)
         .run()
         .await

@@ -57,6 +57,9 @@ importers:
         specifier: ^0.7.5
         version: 0.7.5
     devDependencies:
+      '@types/bn.js':
+        specifier: ^5.2.0
+        version: 5.2.0
       '@types/chai':
         specifier: ^5.2.2
         version: 5.2.2
@@ -163,6 +166,9 @@ importers:
       '@eslint/js':
         specifier: ^9.36.0
         version: 9.37.0
+      '@types/bn.js':
+        specifier: ^5.2.0
+        version: 5.2.0
       '@types/circomlibjs':
         specifier: ^0.1.6
         version: 0.1.6
@@ -9155,7 +9161,7 @@ snapshots:
 
   '@types/bn.js@5.2.0':
     dependencies:
-      '@types/node': 24.7.2
+      '@types/node': 24.10.1
 
   '@types/chai-as-promised@8.0.2':
     dependencies:
@@ -9169,7 +9175,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 24.7.2
+      '@types/node': 24.10.1
 
   '@types/deep-eql@4.0.2': {}
 
@@ -9229,11 +9235,11 @@ snapshots:
 
   '@types/ws@7.4.7':
     dependencies:
-      '@types/node': 24.7.2
+      '@types/node': 24.10.1
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 24.7.2
+      '@types/node': 24.10.1
 
   '@types/yargs-parser@21.0.3': {}
 
@@ -12523,7 +12529,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 24.7.2
+      '@types/node': 24.10.1
       long: 5.2.5
 
   proxy-compare@2.6.0: {}

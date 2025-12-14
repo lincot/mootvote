@@ -1,4 +1,4 @@
-addrs: "0.0.0.0:8443"
+addrs: "0.0.0.0:8080"
 
 solana:
     read_rpcs:
@@ -8,7 +8,3 @@ solana:
         -   url: https://api.devnet.solana.com
             ratelimit: 4 # requests per second
     reader_concurrency: 32
-
-ssl:
-    key: "key.pem"
-    cert: "cert.pem"

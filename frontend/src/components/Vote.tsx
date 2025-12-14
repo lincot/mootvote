@@ -72,8 +72,8 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       if (busy) return;
       setBusy(true);
       setErr("");
-      if (!wallet.publicKey || KR.locked || !poll) {
-        throw new Error("Unlock keyring and connect wallet");
+      if (!useRelayer && !wallet.publicKey) {
+        throw new Error("Connect your Solana wallet to vote without relayer");
       }
       if (selected == null) throw new Error("Select a choice");
 
@@ -291,7 +291,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         };
 
         setStage("Submitting to relayer…");
-        const resp = await fetch(new URL("/relay", RELAYER_URL).toString(), {
+        const resp = await fetch(`${RELAYER_URL}/relay`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body),
@@ -322,7 +322,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         setStage("Sending transaction…");
         const platform = await fetchPlatformConfig(connection);
         const ix: InstructionWithCu = await vote({
-          payer: wallet.publicKey,
+          payer: wallet.publicKey!,
           pollId: pollId,
           ciphertext: ciphertext.map((c) => toBytesBE32(c)),
           ephPk: {
@@ -344,7 +344,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           ...[ix].map((x) => x.instruction),
         );
         tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-        tx.feePayer = wallet.publicKey;
+        tx.feePayer = wallet.publicKey!;
         await wallet.sendTransaction(tx, connection, { maxRetries: 3 });
         setStage("Vote sent!");
       }

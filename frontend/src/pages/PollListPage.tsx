@@ -48,6 +48,10 @@ export default function PollListPage() {
       setErr("");
       setLoading(true);
       const acc = KR.accounts[KR.active];
+      if (!acc) {
+        setPage(null);
+        return;
+      }
       const q = new URLSearchParams();
       q.set("limit", String(POLLS_PAGE_LIMIT));
       if (role !== "all roles") q.set("role", role);

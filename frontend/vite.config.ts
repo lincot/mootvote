@@ -8,9 +8,7 @@ export default defineConfig({
     react(),
     nodePolyfills({
       include: ["crypto", "stream"],
-      globals: {
-        Buffer: true,
-      },
+      globals: { Buffer: false },
     }),
     tailwindcss(),
   ],

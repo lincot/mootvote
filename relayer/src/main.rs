@@ -39,12 +39,11 @@ async fn main() {
     let res = server
         .execute(
             &config.addrs,
-            config.ssl,
             std::thread::available_parallelism()
                 .unwrap()
                 .get()
                 .saturating_sub(1)
-                .min(1),
+                .max(1),
         )
         .await;
     if let Err(err) = res {

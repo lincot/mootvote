@@ -6,7 +6,6 @@ use tracing::debug;
 #[derive(Debug, Deserialize)]
 pub(crate) struct IndexerConfig {
     pub addrs: String,
-    pub ssl: SslConfig,
 }
 
 impl IndexerConfig {
@@ -22,10 +21,4 @@ impl IndexerConfig {
             .try_deserialize()
             .expect("Failed to deserialize config")
     }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct SslConfig {
-    pub key: PathBuf,
-    pub cert: PathBuf,
 }

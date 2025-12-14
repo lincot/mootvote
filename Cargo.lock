@@ -30,21 +30,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "actix-cors"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "daa239b93927be1ff123eebada5a3ff23e89f0124ccb8609234e5103d5a5ae6d"
-dependencies = [
- "actix-utils",
- "actix-web",
- "derive_more",
- "futures-util",
- "log",
- "once_cell",
- "smallvec",
-]
-
-[[package]]
 name = "actix-http"
 version = "3.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -53,7 +38,6 @@ dependencies = [
  "actix-codec",
  "actix-rt",
  "actix-service",
- "actix-tls",
  "actix-utils",
  "base64 0.22.1",
  "bitflags 2.8.0",
@@ -147,25 +131,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "actix-tls"
-version = "3.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac453898d866cdbecdbc2334fe1738c747b4eba14a677261f2b768ba05329389"
-dependencies = [
- "actix-rt",
- "actix-service",
- "actix-utils",
- "futures-core",
- "impl-more",
- "openssl",
- "pin-project-lite",
- "tokio",
- "tokio-openssl",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
 name = "actix-utils"
 version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -188,7 +153,6 @@ dependencies = [
  "actix-rt",
  "actix-server",
  "actix-service",
- "actix-tls",
  "actix-utils",
  "actix-web-codegen",
  "bytes",
@@ -1541,7 +1505,6 @@ dependencies = [
 name = "census-service"
 version = "0.1.0"
 dependencies = [
- "actix-cors",
  "actix-web",
  "ark-bn254 0.5.0",
  "babyjubjub-rs",
@@ -1552,7 +1515,6 @@ dependencies = [
  "hex",
  "light-poseidon 0.4.0",
  "num-bigint 0.4.6",
- "openssl",
  "rand 0.9.2",
  "ruint",
  "serde",
@@ -3861,7 +3823,6 @@ dependencies = [
 name = "mootvote-indexer"
 version = "0.1.0"
 dependencies = [
- "actix-cors",
  "actix-web",
  "anchor-lang",
  "base64 0.21.7",
@@ -3874,7 +3835,6 @@ dependencies = [
  "futures-util",
  "hex",
  "mootvote",
- "openssl",
  "reqwest",
  "serde",
  "serde_json",
@@ -8787,17 +8747,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-openssl"
-version = "0.6.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59df6849caa43bb7567f9a36f863c447d95a11d5903c9cc334ba32576a27eadd"
-dependencies = [
- "openssl",
- "openssl-sys",
- "tokio",
-]
-
-[[package]]
 name = "tokio-rustls"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9967,7 +9916,6 @@ dependencies = [
 name = "zk-relayer-backend"
 version = "0.1.0"
 dependencies = [
- "actix-cors",
  "actix-web",
  "anchor-lang",
  "anyhow",
@@ -9979,7 +9927,6 @@ dependencies = [
  "dotenvy",
  "groth16-solana",
  "hex",
- "openssl",
  "rocksdb",
  "ruint",
  "serde",

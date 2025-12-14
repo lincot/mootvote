@@ -1,9 +1,7 @@
-use actix_cors::Cors;
 use actix_web::{post, web, App, HttpResponse, HttpServer};
 use anchor_lang::{system_program, InstructionData, ToAccountMetas};
 use core::mem::transmute;
 use dashmap::DashMap;
-use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use rocksdb::WriteBatch;
 use serde::{Deserialize, Serialize};
 use serde_with::{hex::Hex, serde_as, DisplayFromStr};
@@ -28,7 +26,6 @@ use tokio::sync::Mutex;
 use tracing::{debug, warn};
 
 use crate::{
-    config::SslConfig,
     prover::{compress_proof, prove_relay, RelayInputs, RelayPublicInputs, STATE_DEPTH},
     rocks::{StateKey, StateStore},
 };
@@ -65,26 +62,16 @@ impl Server {
         }
     }
 
-    pub async fn execute(
-        self,
-        addrs: &str,
-        ssl_config: SslConfig,
-        workers: usize,
-    ) -> std::io::Result<()> {
+    pub async fn execute(self, addrs: &str, workers: usize) -> std::io::Result<()> {
         let state = self.app_state;
-
-        let mut ssl_builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
-        ssl_builder.set_private_key_file(ssl_config.key, SslFiletype::PEM)?;
-        ssl_builder.set_certificate_chain_file(ssl_config.cert)?;
 
         HttpServer::new(move || {
             App::new()
                 .app_data(web::Data::new(state.clone()))
-                .wrap(Cors::permissive())
                 .wrap(actix_web::middleware::Compress::default())
                 .service(relay)
         })
-        .bind_openssl(addrs, ssl_builder)?
+        .bind(addrs)?
         .workers(workers)
         .run()
         .await

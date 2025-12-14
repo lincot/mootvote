@@ -11,6 +11,7 @@ import {
 } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import "./index.css";
+import Page404 from "./pages/Page404";
 import CensusCreatePage from "./pages/CensusCreatePage";
 import CensusesListPage from "./pages/CensusesListPage";
 import CensusDetailPage from "./pages/CensusDetailPage";
@@ -64,6 +65,10 @@ export default function App() {
                       <Route
                         path="/census/:censusId/join/:token"
                         element={<CensusJoinPage />}
+                      />
+                      <Route
+                        path="*"
+                        element={<Page404 />}
                       />
                     </Route>
                   </Routes>
