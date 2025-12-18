@@ -443,11 +443,14 @@ describe("MootVote", () => {
         ciphertext,
       };
 
+      const startTime = performance.now();
       let { proof, publicSignals } = await groth16.fullProve(
         inputs,
         "build/Vote/Vote_js/Vote.wasm",
         "build/Vote/groth16_pkey.zkey",
       );
+      const endTime = performance.now();
+      console.log(`Vote proving took ${endTime - startTime}ms`);
 
       const msgHashJs = F.toObject(
         poseidon([ephPk[0], ephPk[1], nonce, ...ciphertext]),
@@ -551,11 +554,14 @@ describe("MootVote", () => {
           auxValueUniq: proofUniq.oldValue.bigInt(),
         };
 
+        const startTime = performance.now();
         const { proof: relayerProof, publicSignals } = await groth16.fullProve(
           inputs,
           "build/Relay/Relay_js/Relay.wasm",
           "build/Relay/groth16_pkey.zkey",
         );
+        const endTime = performance.now();
+        console.log(`Relay proving took ${endTime - startTime}ms`);
 
         const rootStateOldPub = BigInt(publicSignals[0]);
         const rootStateNew = BigInt(publicSignals[1]);
@@ -781,11 +787,14 @@ describe("MootVote", () => {
       wasLeafEmpty,
     };
 
+    const startTime = performance.now();
     const { proof, publicSignals } = await groth16.fullProve(
       inputs,
       "build/Tally/Tally_js/Tally.wasm",
       "build/Tally/groth16_pkey.zkey",
     );
+    const endTime = performance.now();
+    console.log(`Tally proving took ${endTime - startTime}ms`);
 
     const tallyHashOld = F.toObject(
       poseidon([tallySaltOld, ...tallyOld]),
