@@ -138,9 +138,6 @@ importers:
       idb-keyval:
         specifier: ^6.2
         version: 6.2.2
-      process:
-        specifier: ^0.11.10
-        version: 0.11.10
       react:
         specifier: ^19.2.1
         version: 19.2.1
@@ -156,9 +153,6 @@ importers:
       tailwindcss:
         specifier: ^4.1.14
         version: 4.1.14
-      util:
-        specifier: ^0.12.5
-        version: 0.12.5
       zod:
         specifier: ^4.1.12
         version: 4.1.12
