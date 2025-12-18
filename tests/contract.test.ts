@@ -190,9 +190,10 @@ describe("ZK Relayer", () => {
     );
 
     const relayerConfig = await fetchRelayerConfig(connection);
-    expect(relayerConfig?.admin.equals(tempAdmin.publicKey)).to.be.true;
-    expect(toBigint(relayerConfig?.fee)).to.equal(fee);
-    expect(relayerConfig?.relayer).to.deep.equal({
+    if (!relayerConfig) throw new Error("Relayer config not initialized");
+    expect(relayerConfig.admin.equals(tempAdmin.publicKey)).to.be.true;
+    expect(toBigint(relayerConfig.fee)).to.equal(fee);
+    expect(relayerConfig.relayer).to.deep.equal({
       feeKey: relayer.publicKey,
       endpoint: relayerEndpoint,
     });
@@ -213,9 +214,10 @@ describe("ZK Relayer", () => {
     );
 
     const relayerConfig = await fetchRelayerConfig(connection);
-    expect(relayerConfig?.admin.equals(admin.publicKey)).to.be.true;
-    expect(toBigint(relayerConfig?.fee)).to.equal(relayerFee);
-    expect(relayerConfig?.relayer).to.deep.equal({
+    if (!relayerConfig) throw new Error("Relayer config not initialized");
+    expect(relayerConfig.admin.equals(admin.publicKey)).to.be.true;
+    expect(toBigint(relayerConfig.fee)).to.equal(relayerFee);
+    expect(relayerConfig.relayer).to.deep.equal({
       feeKey: relayer.publicKey,
       endpoint: relayerEndpoint,
     });
@@ -245,9 +247,11 @@ describe("MootVote", () => {
     );
 
     const platformConfig = await fetchPlatformConfig(connection);
-    expect(platformConfig?.admin.equals(tempAdmin.publicKey)).to.be.true;
-    expect(toBigint(platformConfig?.fee)).to.equal(fee);
-    expect(platformConfig?.feeDestination.equals(feeDestination)).to.be.true;
+    if (!platformConfig) throw new Error("Platform config not initialized");
+    expect(platformConfig).to.not.be.null;
+    expect(platformConfig.admin.equals(tempAdmin.publicKey)).to.be.true;
+    expect(toBigint(platformConfig.fee)).to.equal(fee);
+    expect(platformConfig.feeDestination.equals(feeDestination)).to.be.true;
   });
 
   test("updateConfig", async () => {
@@ -262,10 +266,11 @@ describe("MootVote", () => {
     );
 
     const platformConfig = await fetchPlatformConfig(connection);
-    expect(platformConfig?.admin.equals(admin.publicKey)).to.be.true;
-    expect(toBigint(platformConfig?.fee)).to.equal(platformFee);
+    if (!platformConfig) throw new Error("Platform config not initialized");
+    expect(platformConfig.admin.equals(admin.publicKey)).to.be.true;
+    expect(toBigint(platformConfig.fee)).to.equal(platformFee);
     expect(
-      platformConfig?.feeDestination.equals(platformFeeDestination.publicKey),
+      platformConfig.feeDestination.equals(platformFeeDestination.publicKey),
     ).to.be.true;
   });
 
@@ -303,30 +308,32 @@ describe("MootVote", () => {
     );
 
     const poll = await fetchPoll(connection, findPoll(pollId));
-    expect(toBigint(poll?.id)).to.equal(pollId);
-    expect(poll?.nChoices).to.equal(nChoices);
-    expect(poll?.coordinatorKey).to.deep.equal(coordinatorKey);
-    expect(poll?.censusRoot).to.deep.equal(toBytesBE32(censusRoot));
-    expect(poll?.cumulativeMsgHash).to.deep.equal(
+    if (!poll) throw new Error("Poll not initialized");
+    expect(toBigint(poll.id)).to.equal(pollId);
+    expect(poll.nChoices).to.equal(nChoices);
+    expect(poll.coordinatorKey).to.deep.equal(coordinatorKey);
+    expect(poll.censusRoot).to.deep.equal(toBytesBE32(censusRoot));
+    expect(poll.cumulativeMsgHash).to.deep.equal(
       Array.from({ length: 32 }, () => 0),
     );
-    expect(poll?.votingStartTime.eq(votingStartTime)).to.be.true;
-    expect(poll?.votingEndTime.eq(votingEndTime)).to.be.true;
-    expect(toBigint(poll?.platformFee)).to.deep.equal(platformFee);
-    expect(toBigint(poll?.fee)).to.equal(pollFee);
-    expect(poll?.feeDestination.equals(pollFeeDestination.publicKey)).to.be
+    expect(poll.votingStartTime.eq(votingStartTime)).to.be.true;
+    expect(poll.votingEndTime.eq(votingEndTime)).to.be.true;
+    expect(toBigint(poll.platformFee)).to.deep.equal(platformFee);
+    expect(toBigint(poll.fee)).to.equal(pollFee);
+    expect(poll.feeDestination.equals(pollFeeDestination.publicKey)).to.be
       .true;
-    expect(poll?.descriptionUrl).to.equal(descriptionUrl);
-    expect(poll?.censusUrl).to.equal(censusUrl);
-    expect(poll?.tally).to.be.empty;
+    expect(poll.descriptionUrl).to.equal(descriptionUrl);
+    expect(poll.censusUrl).to.equal(censusUrl);
+    expect(poll.tally).to.be.empty;
 
     const relayerState = await fetchRelayerState(
       connection,
       findRelayerState(PROGRAM_ID, pollId),
     );
-    expect(relayerState?.endTime.eq(votingEndTime)).to.be.true;
-    expect(toBigint(relayerState?.msgLimit)).to.equal(MSG_LIMIT);
-    expect(relayerState?.rootState).to.not.deep.equal(
+    if (!relayerState) throw new Error("Relayer state not initialized");
+    expect(relayerState.endTime.eq(votingEndTime)).to.be.true;
+    expect(toBigint(relayerState.msgLimit)).to.equal(MSG_LIMIT);
+    expect(relayerState.rootState).to.not.deep.equal(
       Array.from({ length: 32 }, () => 0),
     );
   });
@@ -814,11 +821,12 @@ describe("MootVote", () => {
       connection,
       findTally(pollId, payer.publicKey),
     );
-    expect(tallyAcc?.tallyHash).to.deep.equal(toBytesBE32(tallyHashOld));
-    expect(tallyAcc?.cumulativeMsgHash).to.deep.equal(
+    if (!tallyAcc) throw new Error("Tally not initialized");
+    expect(tallyAcc.tallyHash).to.deep.equal(toBytesBE32(tallyHashOld));
+    expect(tallyAcc.cumulativeMsgHash).to.deep.equal(
       Array.from({ length: 32 }, () => 0),
     );
-    expect(tallyAcc?.root).to.deep.equal(Array.from({ length: 32 }, () => 0));
+    expect(tallyAcc.root).to.deep.equal(Array.from({ length: 32 }, () => 0));
 
     await sendIx(
       await closeTally({
@@ -887,7 +895,8 @@ describe("MootVote", () => {
       .be.null;
 
     const poll = await fetchPoll(connection, findPoll(pollId));
-    expect(poll?.tally.map(toBigint)).to.deep.equal(tally.slice(0, nChoices));
+    if (!poll) throw new Error("Poll not initialized");
+    expect(poll.tally.map(toBigint)).to.deep.equal(tally.slice(0, nChoices));
   });
 
   test("withdrawPoll", async () => {

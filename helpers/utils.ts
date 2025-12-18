@@ -220,11 +220,10 @@ export const toHex32 = (n: bigint) => {
     x >>= 8n;
   }
   return Array.from(out).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+};
 
 export const bytes32ToBig = (u8: Uint8Array, off: number) => {
   let x = 0n;
   for (let i = 0; i < 32; i++) x = (x << 8n) | BigInt(u8[off + i]);
   return x;
 };
-
