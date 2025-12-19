@@ -18,6 +18,7 @@
     "circomlib": "^2.0.5",
     "ffjavascript": "^0.3.1",
     "@noble/hashes": "^1.7.1",
+    "@ardrive/turbo-sdk": "^1.39.2",
     "snarkjs": "^0.7.5"
   },
   "devDependencies": {

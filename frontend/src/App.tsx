@@ -20,7 +20,7 @@ import PollListPage from "./pages/PollListPage.tsx";
 import PollDetailPage from "./pages/PollDetailPage.tsx";
 import { RPC_URL } from "./env.tsx";
 import { KeyringProvider, RevoKeysProvider } from "./keyring.tsx";
-import { PollCreatePage } from "./pages/VoteCreatePage.tsx";
+import { PollCreatePage } from "./pages/PollCreatePage.tsx";
 import { AccountDrawer } from "./components/AccountDrawer.tsx";
 import { Layout } from "./Layout.tsx";
 

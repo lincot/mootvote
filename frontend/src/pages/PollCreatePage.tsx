@@ -26,11 +26,10 @@ import { useEffect, useState } from "react";
 import { btn } from "../btn.ts";
 import { Help } from "../components/Help.tsx";
 import { CENSUS_DEPTH, MAX_CHOICES } from "../consts.ts";
-import { irysBatchUpload } from "../irys.ts";
+import { turboBatchUpload } from "../arweave.ts";
 import { INPUT_CN } from "../input.ts";
 
 const MAX_POLL_DURATION = 365 * 24 * 60 * 60;
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 const HEX = /^0x?[0-9a-fA-F]*$/;
 
@@ -68,24 +67,12 @@ const schemaBase = z.object({
     });
     return;
   }
-  if (CLUSTER == "devnet") {
-    // This ensures availability of census on Irys devnet.
-    const limit = Date.now() + 60 * ONE_DAY_MS;
-    if (endMs > limit) {
-      ctx.addIssue({
-        code: "custom",
-        message: "On devnet, polls must end within 60 days from now.",
-        path: ["end"],
-      });
-    }
-  } else {
-    if (endMs - startMs > MAX_POLL_DURATION * 1000) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Poll duration must be ≤ 365 days.",
-        path: ["end"],
-      });
-    }
+  if (endMs - startMs > MAX_POLL_DURATION * 1000) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Poll duration must be ≤ 365 days.",
+      path: ["end"],
+    });
   }
 });
 
@@ -103,7 +90,7 @@ const schema = z.discriminatedUnion("coordMode", [
 type FormValues = z.infer<typeof schema>;
 type Stage =
   | "idle"
-  | "uploading data to Irys"
+  | "uploading data to Arweave"
   | "creating poll"
   | "done"
   | "error";
@@ -199,7 +186,11 @@ export const PollCreatePage: React.FC<{}> = () => {
   const onSubmit = async (data: FormValues) => {
     try {
       setErrMsg("");
-      setStage("uploading data to Irys");
+      setStage("uploading data to Arweave");
+
+      if (!wallet.publicKey || !wallet.signMessage || !wallet.signTransaction) {
+        throw new Error("Connect your Solana wallet first");
+      }
 
       const cleanedChoices = data.choices.map((c) => c.value.trim()).filter((
         c,
@@ -210,21 +201,23 @@ export const PollCreatePage: React.FC<{}> = () => {
       });
       const descBytes = new TextEncoder().encode(descJson);
 
-      const [descUrl, censusUrl] = await irysBatchUpload(
-        wallet,
+      const [descUrl, censusUrl] = await turboBatchUpload(
+        {
+          publicKey: wallet.publicKey,
+          signMessage: wallet.signMessage,
+          signTransaction: wallet.signTransaction,
+        },
         [
           { data: Buffer.from(descBytes), contentType: "application/json" },
           {
             data: Buffer.from(data.censusBytes),
             contentType: "application/octet-stream",
-            tags: [{ name: "App-Name", value: "mootvote-census" }, {
-              name: "Leaves",
-              value: String(data.censusCount),
-            }],
           },
         ],
         { devnet: CLUSTER === "devnet", rpc: RPC_URL },
       );
+      console.log("Description URL:", descUrl);
+      console.log("Census URL:", censusUrl);
 
       setStage("creating poll");
 
