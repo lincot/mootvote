@@ -109,17 +109,14 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
 
   const refreshRemaining = useCallback(async () => {
     try {
-      if (!store) {
-        setRemaining(null);
-        return;
-      }
-      const after = store.processedAfterId;
       const r = await fetch(
-        `${INDEXER_URL}/polls/${pollId}/votes?limit=100&after=${after}`,
+        `${INDEXER_URL}/polls/${pollId}/votes?limit=100${
+          store ? `&after=${store.processedAfterId}` : ""
+        }`,
       );
       if (!r.ok) throw new Error("votes fetch");
       const j: VotesPage = await r.json();
-      setRemaining(j.total - store.processedCount);
+      setRemaining(j.total - (store ? store.processedCount : 0));
     } catch (e: any) {
       console.error(e);
       setRemaining(null);
@@ -130,89 +127,21 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
     refreshRemaining();
   }, [refreshRemaining]);
 
-  const onCreateTally = useCallback(async () => {
-    try {
-      if (busy) return;
-      setBusy(true);
-      setStage("Creating tally account…");
-      if (!wallet.publicKey) throw new Error("Connect Solana wallet");
-      if (!keypair) throw new Error("No active ZK tallier key");
-      if (!poll) throw new Error("Poll not loaded");
-
-      const tallyOld = Array(poll.choices.length).fill(0n);
-      const saltU8 = new Uint8Array(8);
-      crypto.getRandomValues(saltU8);
-      let salt = 0n;
-      for (const b of saltU8) salt = (salt << 8n) | BigInt(b);
-
-      const poseidon = await getPoseidon();
-      const F = poseidon.F;
-      const tallyOldHash = F.toObject(
-        poseidon([
-          salt,
-          ...tallyOld,
-          ...Array(MAX_CHOICES - tallyOld.length).fill(0n),
-        ]),
-      );
-      const initialTallyHashBytes = toBytesBE32(tallyOldHash);
-
-      const ix = await createTally({
-        initialTallyHash: initialTallyHashBytes,
-        payer: wallet.publicKey,
-        pollId: BigInt(pollId),
-      });
-      const tx = new Transaction().add(
-        cuLimitInstruction([ix]),
-        ...[ix].map((x) => x.instruction),
-      );
-      tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-      tx.feePayer = wallet.publicKey;
-      await wallet.sendTransaction(tx, connection, { maxRetries: 3 });
-
-      const s: TallyStore = {
-        pollId,
-        accountId,
-        processedAfterId: 0n,
-        processedCount: 0,
-        rootHex: "0x" + "00".repeat(32),
-        runningMsgHashHex: "0x" + "00".repeat(32),
-        tallySaltHex: toHex32(salt),
-        tallyCounts: tallyOld.map((x) => x.toString(10)),
-        leaves: {},
-      };
-      await saveTallyStore(s);
-      setStore(s);
-      setStage("");
-    } catch (e: any) {
-      console.error(e);
-      setErr("Error: " + String(e?.message || e));
-      setStage("");
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    wallet.publicKey,
-    poll,
-    pollId,
-    accountId,
-    keypair,
-    refreshRemaining,
-    busy,
-  ]);
-
   const onTallyNext = useCallback(async () => {
     try {
       if (busy) return;
       setBusy(true);
+      setErr("");
       setStage("Fetching votes to tally…");
       if (!wallet.publicKey) throw new Error("Connect Solana wallet");
       if (!keypair) throw new Error("No active ZK tallier key");
-      if (!poll || !store) throw new Error("Poll/store not ready");
       const poseidon = await getPoseidon();
       const F = poseidon.F;
 
       const r = await fetch(
-        `${INDEXER_URL}/polls/${pollId}/votes?limit=${MAX_BATCH}&after=${store.processedAfterId}`,
+        `${INDEXER_URL}/polls/${pollId}/votes?limit=${MAX_BATCH}${
+          store ? `&after=${store.processedAfterId}` : ""
+        }`,
       );
       if (!r.ok) throw new Error("votes fetch failed");
       const page: VotesPage = await r.json();
@@ -222,7 +151,11 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       setStage("Generating proof… (this may take a bit)");
       const db = new InMemoryDB(new Uint8Array());
       const mt = new Merkletree(db, true, STATE_DEPTH);
-      for (const [idxStr, { hash: leafHash }] of Object.entries(store.leaves)) {
+      for (
+        const [idxStr, { hash: leafHash }] of store
+          ? Object.entries(store.leaves)
+          : []
+      ) {
         const idx = BigInt(idxStr);
         try {
           await mt.add(idx, leafHash);
@@ -234,9 +167,11 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const rootOld = (await mt.root()).bigInt();
 
       const coordinatorSk = keypair.sk;
-      let H = BigInt(store.runningMsgHashHex);
-      const tallyCounts = store.tallyCounts.map((x) => BigInt(x));
-      const leavesMap = { ...store.leaves };
+      let H = store ? BigInt(store.runningMsgHashHex) : 0n;
+      const tallyCounts = store
+        ? store.tallyCounts.map((x) => BigInt(x))
+        : Array(poll.choices.length).fill(0n);
+      const leavesMap = store ? { ...store.leaves } : {};
 
       const ephPk: bigint[][] = [];
       const nonces: bigint[] = [];
@@ -340,7 +275,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       }
 
       const rootNew = (await mt.root()).bigInt();
-      let tallySaltOld = BigInt("0x" + store.tallySaltHex);
+      let tallySaltOld = store ? BigInt("0x" + store.tallySaltHex) : 0n;
       const saltU8b = new Uint8Array(8);
       crypto.getRandomValues(saltU8b);
       let tallySaltNew = 0n;
@@ -348,14 +283,14 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
 
       const tallyOld = Array(MAX_CHOICES).fill(0n);
       for (let i = 0; i < MAX_CHOICES; i++) {
-        tallyOld[i] = BigInt(store.tallyCounts[i] ?? "0");
+        tallyOld[i] = store ? BigInt(store.tallyCounts[i] ?? "0") : "0";
       }
       const tallyNew = tallyOld.slice();
       for (let i = 0; i < MAX_CHOICES; i++) {
         tallyNew[i] = tallyCounts[i] ?? 0n;
       }
 
-      const cumulativeMsgHashOld = BigInt(store.runningMsgHashHex);
+      const cumulativeMsgHashOld = store ? BigInt(store.runningMsgHashHex) : 0n;
 
       const tallyHashNew = F.toObject(poseidon([tallySaltNew, ...tallyNew]));
 
@@ -394,21 +329,35 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
 
       setStage("Sending transaction…");
       const serialized = compressProof(proof);
-      const ix = await tallyBatch({
-        pollId: BigInt(pollId),
-        proof: {
-          a: Array.from(serialized.a),
-          b: Array.from(serialized.b),
-          c: Array.from(serialized.c),
-        },
-        owner: wallet.publicKey,
-        rootNew: toBytesBE32(rootNew),
-        cumulativeMsgHashNew: toBytesBE32(cumulativeMsgHashNewPub),
-        tallyHashNew: toBytesBE32(tallyHashNewPub),
-      });
+      const ixs = [];
+      if (!store) {
+        ixs.push(
+          await createTally({
+            initialTallyHash: toBytesBE32(
+              F.toObject(poseidon([tallySaltOld, ...tallyOld])),
+            ),
+            payer: wallet.publicKey,
+            pollId: BigInt(pollId),
+          }),
+        );
+      }
+      ixs.push(
+        await tallyBatch({
+          pollId: BigInt(pollId),
+          proof: {
+            a: Array.from(serialized.a),
+            b: Array.from(serialized.b),
+            c: Array.from(serialized.c),
+          },
+          owner: wallet.publicKey,
+          rootNew: toBytesBE32(rootNew),
+          cumulativeMsgHashNew: toBytesBE32(cumulativeMsgHashNewPub),
+          tallyHashNew: toBytesBE32(tallyHashNewPub),
+        }),
+      );
       const tx = new Transaction().add(
-        cuLimitInstruction([ix]),
-        ...[ix].map((x) => x.instruction),
+        cuLimitInstruction(ixs),
+        ...ixs.map((x) => x.instruction),
       );
       tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
       tx.feePayer = wallet.publicKey;
@@ -416,9 +365,14 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
 
       const lastId = BigInt(batch[batch.length - 1].id);
       const newStore: TallyStore = {
-        ...store,
+        ...store ?? {
+          pollId: BigInt(poll.poll_id),
+          accountId: keypair
+            ? `${keypair.pub[0].toString(16)}:${keypair.pub[1].toString(16)}`
+            : "",
+        },
         processedAfterId: lastId,
-        processedCount: store.processedCount + batch.length,
+        processedCount: (store ? store.processedCount : 0) + batch.length,
         rootHex: toHex32(rootNew),
         runningMsgHashHex: toHex32(cumulativeMsgHashNewPub),
         tallySaltHex: toHex32(tallySaltNew),
@@ -442,18 +396,36 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
     try {
       if (busy) return;
       setBusy(true);
+      setErr("");
       setStage("Sending transaction…");
       if (!wallet.publicKey) throw new Error("Connect Solana wallet");
-      if (!poll || !store) throw new Error("Poll/store not ready");
-      const finalCounts = store.tallyCounts.map((x) => BigInt(x));
-      const finalSalt = BigInt("0x" + store.tallySaltHex);
-      const ix = await finishTally({
-        pollId: BigInt(pollId),
-        payer: wallet.publicKey,
-        tally: finalCounts,
-        tallySalt: finalSalt,
-      });
-      const tx = new Transaction().add(ix.instruction);
+      const finalCounts = store
+        ? store.tallyCounts.map((x) => BigInt(x))
+        : Array(poll.choices.length).fill(0n);
+      const finalSalt = store ? BigInt("0x" + store.tallySaltHex) : 0n;
+      const ixs = [];
+      if (!store) {
+        const poseidon = await getPoseidon();
+        const F = poseidon.F;
+        ixs.push(
+          await createTally({
+            initialTallyHash: toBytesBE32(
+              F.toObject(poseidon(Array(MAX_CHOICES + 1).fill(0n))),
+            ),
+            payer: wallet.publicKey,
+            pollId: BigInt(pollId),
+          }),
+        );
+      }
+      ixs.push(
+        await finishTally({
+          pollId: BigInt(pollId),
+          payer: wallet.publicKey,
+          tally: finalCounts,
+          tallySalt: finalSalt,
+        }),
+      );
+      const tx = new Transaction().add(...ixs.map((ix) => ix.instruction));
       tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
       tx.feePayer = wallet.publicKey;
       await wallet.sendTransaction(tx, connection, { maxRetries: 3 });
@@ -480,93 +452,73 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
 
   return (
     <>
-      {store && (
-        <div className="mt-4">
-          {(() => {
-            const processed = store.processedCount;
-            const rem = remaining ?? 0;
-            const total = processed + rem;
-            const pct = total === 0 ? 100 : Math.max(
-              0,
-              Math.min(100, Math.round((processed / total) * 100)),
-            );
-            return (
-              <div className="flex items-center gap-2">
-                <div className="relative h-2 w-full rounded bg-gray-200 dark:bg-zinc-800 overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-600 dark:bg-emerald-500 transition-[width] duration-300"
-                    style={{ width: `${pct}%` }}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={pct}
-                    role="progressbar"
-                  />
-                </div>
-                <button
-                  onClick={refreshRemaining}
-                  disabled={busy}
-                  title="Refresh remaining"
-                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-60"
-                  aria-label="Refresh remaining"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 32 32"
-                    width="32px"
-                    height="32px"
-                  >
-                    <path
-                      fill="#AB7C94"
-                      d="M 16 4 C 10.886719 4 6.617188 7.160156 4.875 11.625 L 6.71875 12.375 C 8.175781 8.640625 11.710938 6 16 6 C 19.242188 6 22.132813 7.589844 23.9375 10 L 20 10 L 20 12 L 27 12 L 27 5 L 25 5 L 25 8.09375 C 22.808594 5.582031 19.570313 4 16 4 Z M 25.28125 19.625 C 23.824219 23.359375 20.289063 26 16 26 C 12.722656 26 9.84375 24.386719 8.03125 22 L 12 22 L 12 20 L 5 20 L 5 27 L 7 27 L 7 23.90625 C 9.1875 26.386719 12.394531 28 16 28 C 21.113281 28 25.382813 24.839844 27.125 20.375 Z"
-                    />
-                  </svg>
-                </button>
-                <div className="text-xs tabular-nums w-20 text-right">
-                  {processed}/{total}
-                </div>
+      <div className="mt-4">
+        {(() => {
+          const processed = store ? store.processedCount : 0;
+          const rem = remaining ?? 0;
+          const total = processed + rem;
+          const pct = total === 0 ? 100 : Math.max(
+            0,
+            Math.min(100, Math.round((processed / total) * 100)),
+          );
+          return (
+            <div className="flex items-center gap-2">
+              <div className="relative h-2 w-full rounded bg-gray-200 dark:bg-zinc-800 overflow-hidden">
+                <div
+                  className="h-full bg-emerald-600 dark:bg-emerald-500 transition-[width] duration-300"
+                  style={{ width: `${pct}%` }}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={pct}
+                  role="progressbar"
+                />
               </div>
-            );
-          })()}
-        </div>
-      )}
-      {!store && (
-        <p className="text-sm">
-          To count votes, first initialize the tally.
-        </p>
-      )}
+              <button
+                onClick={refreshRemaining}
+                disabled={busy}
+                title="Refresh remaining"
+                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-60"
+                aria-label="Refresh remaining"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 32 32"
+                  width="32px"
+                  height="32px"
+                >
+                  <path
+                    fill="#AB7C94"
+                    d="M 16 4 C 10.886719 4 6.617188 7.160156 4.875 11.625 L 6.71875 12.375 C 8.175781 8.640625 11.710938 6 16 6 C 19.242188 6 22.132813 7.589844 23.9375 10 L 20 10 L 20 12 L 27 12 L 27 5 L 25 5 L 25 8.09375 C 22.808594 5.582031 19.570313 4 16 4 Z M 25.28125 19.625 C 23.824219 23.359375 20.289063 26 16 26 C 12.722656 26 9.84375 24.386719 8.03125 22 L 12 22 L 12 20 L 5 20 L 5 27 L 7 27 L 7 23.90625 C 9.1875 26.386719 12.394531 28 16 28 C 21.113281 28 25.382813 24.839844 27.125 20.375 Z"
+                  />
+                </svg>
+              </button>
+              <div className="text-xs tabular-nums w-20 text-right">
+                {processed}/{total}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
       <div className="mt-3 flex items-center gap-2">
-        {!store && (
+        {remaining !== 0 && (
           <button
             className={btn(!busy && !!wallet.publicKey)}
             disabled={busy || !wallet.publicKey}
-            onClick={onCreateTally}
+            onClick={onTallyNext}
           >
-            Start tally
+            Tally next batch
           </button>
         )}
-        {store && (
-          <>
-            {remaining !== 0 && remaining !== null && (
-              <button
-                className={btn(!busy && !!wallet.publicKey)}
-                disabled={busy || !wallet.publicKey}
-                onClick={onTallyNext}
-              >
-                Tally next batch
-              </button>
-            )}
-            {Date.now() / 1000 >= poll.voting_end_time && remaining === 0 &&
-              (
-                <button
-                  className={btn(!busy && !!wallet.publicKey)}
-                  disabled={busy || !wallet.publicKey}
-                  onClick={onFinishTally}
-                >
-                  Finish Tally
-                </button>
-              )}
-          </>
-        )}
+        {Date.now() / 1000 >= poll.voting_end_time && remaining === 0 &&
+          (
+            <button
+              className={btn(!busy && !!wallet.publicKey)}
+              disabled={busy || !wallet.publicKey}
+              onClick={onFinishTally}
+            >
+              Finish Tally
+            </button>
+          )}
         <span className="text-sm text-purple-600">{stage}</span>
         {err && (
           <span className="text-sm text-red-500 whitespace-pre-wrap">
