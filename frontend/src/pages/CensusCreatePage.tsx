@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,10 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function CensusCreatePage() {
+  useLayoutEffect(() => {
+    document.title = "New Census";
+  });
+
   const KR = useKeyringCtx();
   const nav = useNavigate();
   const [err, setErr] = useState<string>("");

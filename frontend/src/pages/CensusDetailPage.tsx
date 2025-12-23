@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { makeAuthSig } from "../auth.ts";
 import { CENSUS_URL } from "../env.tsx";
@@ -41,6 +41,10 @@ export default function CensusDetailPage() {
   const [addErr, setAddErr] = useState("");
   const [addInvite, setAddInvite] = useState<Invite | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (page) document.title = page.title;
+  }, [page]);
 
   async function load(after: number | null) {
     try {

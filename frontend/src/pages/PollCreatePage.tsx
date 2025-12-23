@@ -22,7 +22,7 @@ import {
 import { getMerkleRoot } from "../../../helpers/merkletree.ts";
 import { useKeyringCtx } from "../keyring.tsx";
 import { CENSUS_URL, CLUSTER, RPC_URL } from "../env.tsx";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { btn } from "../btn.ts";
 import { Help } from "../components/Help.tsx";
 import { CENSUS_DEPTH, MAX_CHOICES } from "../consts.ts";
@@ -134,6 +134,10 @@ function localInputToUnixSeconds(s: string): number {
 }
 
 export const PollCreatePage: React.FC<{}> = () => {
+  useLayoutEffect(() => {
+    document.title = "New Poll";
+  });
+
   const wallet = useWallet();
   const KR = useKeyringCtx();
   const connection = new Connection(RPC_URL, { commitment: "confirmed" });

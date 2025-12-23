@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { makeAuthSig } from "../auth.ts";
 import { CENSUS_URL } from "../env.tsx";
@@ -13,6 +13,10 @@ export default function CensusJoinPage() {
   const tok = token!;
   const KR = useKeyringCtx();
   const nav = useNavigate();
+
+  useLayoutEffect(() => {
+    document.title = "Join Census";
+  });
 
   const [pf, setPf] = useState<Preflight | null>(null);
   const [stage, setStage] = useState("");

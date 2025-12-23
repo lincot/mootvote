@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { INDEXER_URL } from "../env.tsx";
 import { keyToLeafHex, useKeyringCtx } from "../keyring.tsx";
@@ -36,6 +36,12 @@ export default function PollDetailPage() {
   const [poll, setPoll] = useState<PollDetail | null>(null);
   const [isVoter, setIsVoter] = useState(false);
   const [err, setErr] = useState("");
+
+  useLayoutEffect(() => {
+    if (poll) {
+      document.head.title = poll.title;
+    }
+  }, [poll]);
 
   const clock = usePollClock(
     poll?.voting_start_time ?? 0,

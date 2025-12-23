@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { makeAuthSig } from "../auth.ts";
 import { CENSUS_URL } from "../env.tsx";
@@ -21,6 +21,10 @@ type ListOut = {
 };
 
 export default function CensusesListPage() {
+  useLayoutEffect(() => {
+    document.title = "My Censuses";
+  });
+
   const KR = useKeyringCtx();
   const navigate = useNavigate();
 

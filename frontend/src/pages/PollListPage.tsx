@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { PollStatus } from "../components/PollStatus.tsx";
 import { INDEXER_URL } from "../env.tsx";
@@ -19,6 +19,10 @@ type Page = { items: PollItem[]; next_before: number | null };
 const POLLS_PAGE_LIMIT = 20;
 
 export default function PollListPage() {
+  useLayoutEffect(() => {
+    document.title = "My Polls";
+  });
+
   const KR = useKeyringCtx();
   const [sp, setSp] = useSearchParams();
   const role = (sp.get("role") ?? "all roles") as
