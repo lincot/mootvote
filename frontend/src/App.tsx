@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { BrowserRouter, Route, Routes } from "react-router";
 import {
   ConnectionProvider,
   WalletProvider,
@@ -23,6 +23,7 @@ import { KeyringProvider, RevoKeysProvider } from "./keyring.tsx";
 import { PollCreatePage } from "./pages/PollCreatePage.tsx";
 import { AccountDrawer } from "./components/AccountDrawer.tsx";
 import { Layout } from "./Layout.tsx";
+import HomePage from "./pages/HomePage.tsx";
 
 export default function App() {
   const wallets = useMemo(
@@ -43,10 +44,7 @@ export default function App() {
                     <Route
                       element={<Layout setShowAccounts={setShowAccounts} />}
                     >
-                      <Route
-                        path="/"
-                        element={<Navigate to="/polls/new" replace />}
-                      />
+                      <Route path="/" element={<HomePage />} />
                       <Route path="/polls" element={<PollListPage />} />
                       <Route path="/polls/new" element={<PollCreatePage />} />
                       <Route

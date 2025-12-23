@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet } from "react-router";
-
+import { Link, NavLink, Outlet } from "react-router";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import "./index.css";
@@ -52,8 +51,14 @@ export const Layout: React.FC<
             >
               ☰
             </button>
-            <h1 className="text-xl font-bold leading-none">MootVote</h1>
-
+            <h1 className="text-xl font-bold leading-none">
+              <Link
+                to="/"
+                aria-label="Go to home"
+              >
+                MootVote
+              </Link>
+            </h1>
             {CLUSTER === "devnet" && (
               <span
                 className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
