@@ -1,0 +1,227 @@
+{
+  "nav": {
+    "polls": "My Polls",
+    "censuses": "My Censuses",
+    "aria": { "toggle": "Toggle navigation", "home": "Go to home" }
+  },
+  "home": {
+    "title": "MootVote — Private voting on Solana",
+    "headline": "Anonymous, bribery-resistant voting on",
+    "solana": "Solana",
+    "subhead_line1": "MootVote lets you run fully private, verifiable polls, powered by ZK proofs and Solana.",
+    "subhead_line2": "No wallet is required to vote.",
+    "how": "How it works",
+    "census_title": "1) Build a Census",
+    "census_body": "The organizer creates a census (list of eligible voters). Members claim a slot with their public key via invite links. You can also import a census created elsewhere.",
+    "poll_title": "2) Create a Poll",
+    "poll_body": "Give it a title and choices. Census and description are stored in decentralized storage; the poll (time window, optional fees) goes on Solana.",
+    "vote_title": "3) Vote Privately",
+    "vote_body": "Voters prove membership with ZK proofs and encrypt their choice to the tallier. They can vote via relayer (no wallet needed) and use a private re-voting key to change their vote later.",
+    "tally_title": "4) Tally",
+    "tally_body": "The tallier decrypts votes and submits ZK proofs of correct counting, making tampering impossible.",
+    "results_title": "5) Results",
+    "results_body": "After the poll ends and all votes are counted, results are finalized on-chain.",
+    "security_title": "Security & Privacy",
+    "security_body": "Votes are unlinkable to identities. Membership is proven without disclosure; not even the tallier learns real identities. Bribery is impractical because voters cannot prove how they voted.",
+    "cta_title": "Ready to try?",
+    "cta_body": "Invite a few participants to start a poll.",
+    "cta_census": "Create a census",
+    "disclaimer": "Disclaimer: this is early software, not yet suitable for high-stakes governance."
+  },
+  "keyring": {
+    "zk_accounts": "ZK Accounts",
+    "create": "Create keyring",
+    "unlock": "Unlock",
+    "set_passphrase": "Set passphrase",
+    "passphrase": "Passphrase",
+    "sets_passphrase": "This sets your keyring passphrase. It encrypts your ZK accounts with PBKDF2 (AES-GCM) and stores them in your browser (IndexedDB). Keep it safe — it cannot be recovered.",
+    "is_encrypted": "Keyring is encrypted and only stored in your browser.",
+    "label": "Label",
+    "new": "New",
+    "export": "Export",
+    "import_name": "Import name",
+    "private_seed": "Private seed (hex)",
+    "import": "Import",
+    "no_accounts": "No accounts yet.",
+    "use": "Use",
+    "delete": "Delete",
+    "show_private_key": "Show private key",
+    "revoting_keys": "Re-voting keys",
+    "export_title": "Export this account's re-voting keys as JSON",
+    "no_active": "No active account.",
+    "no_revoting": "No re-voting keys.",
+    "show_secret": "show secret",
+    "secret": "secret:",
+    "delete_this_revo": "Delete this re-voting key",
+    "revo_delete_confirm": "Delete re-voting key for poll #{{pollId}} ({{title}})?\n\nIf you delete this key, you may be unable to re-vote in this poll.\n\nThis action cannot be undone."
+  },
+  "actions": {
+    "add": "Add",
+    "remove": "Remove"
+  },
+  "poll": {
+    "overview": "Overview",
+    "vote": "Vote",
+    "tally": "Tally",
+    "results": "Results",
+    "choices": "Choices",
+    "fee": "Fee",
+    "platform_fee": "Platform fee",
+    "total_votes": "Total votes",
+    "unlock_zk": "Unlock “ZK Accounts” to vote or tally.",
+    "waiting_for_tallier": "Waiting for tallier to count the votes…",
+    "poll": "Poll #{{id}}"
+  },
+  "census_creation": {
+    "create_census": "Create census",
+    "title": "Title",
+    "description": "Description (optional)",
+    "members": "members",
+    "name": "Name #{{num}}"
+  },
+  "census": {
+    "add_member": "Add a member",
+    "added_member": "Added member",
+    "member_name": "Member name",
+    "has_not_joined": "hasn't joined yet",
+    "copy_invite": "Copy invite link",
+    "invite_copied": "Invite link copied",
+    "copy_failed": "Copy failed, click to try again",
+    "no_members_yet": "No members yet."
+  },
+  "census_list": {
+    "create_new_census": "Create new census",
+    "creator": "Creator",
+    "no_censuses": "No censuses yet."
+  },
+  "census_join": {
+    "stage": {
+      "checking": "Checking invite…",
+      "signing": "Signing…",
+      "submitting": "Submitting…",
+      "joined": "Joined successfully"
+    },
+    "were_invited": "You were invited to join census",
+    "unlock_zk": "Unlock “ZK Accounts” and select your account to bind.",
+    "join": "Join census"
+  },
+  "census_modal": {
+    "choose_census": "Choose census",
+    "unlock_zk": "Unlock “ZK Accounts” to view your censuses.",
+    "no_matches": "No matches."
+  },
+  "poll_creation": {
+    "stage": {
+      "arweave": "Uploading data to Arweave…",
+      "created": "Poll created."
+    },
+    "create_poll": "Create poll",
+    "title": "Poll title",
+    "start": "Start",
+    "end": "End",
+    "tallier_key": "Tallier key",
+    "use_keyring": "Use keyring",
+    "enter_manually": "Enter manually",
+    "no_zk_account": "No active ZK account. Open “ZK Accounts” and create/select one.",
+    "using_account": "Using account:",
+    "poll_fee": "Poll fee (in lamports)",
+    "choices": "Choices",
+    "choice": "Choice #{{num}}",
+    "census_source": "Census source",
+    "use_existing_census": "Use existing census",
+    "upload_file": "Upload file",
+    "choose_census": "Choose census…",
+    "chosen": "Chosen:",
+    "census_bin": "Census (.bin)",
+    "entry_count": "Entry count:",
+    "census_format": {
+      "what_is_census_bin": "What is census.bin?",
+      "census_file_format": "Census file format",
+      "binary_file": "Binary file, no header.",
+      "concatenation_of_leaves": "Concatenation of leaves, one per voter, each exactly",
+      "bytes32": "32 bytes",
+      "be": "big-endian",
+      "each_leaf_is": "Each leaf is",
+      "over_baby": "over Baby JubJub, encoded as a field element (BE)."
+    }
+  },
+  "poll_list": {
+    "create_new_poll": "Create new poll",
+
+    "all roles": "All roles",
+    "voter": "Voter",
+    "tallier": "Tallier",
+
+    "all statuses": "All statuses",
+    "active": "Active",
+    "upcoming": "Upcoming",
+    "ended": "Ended"
+  },
+  "vote": {
+    "stage": {
+      "preparing": "Preparing keys & proof…",
+      "downloading": "Downloading census & building Merkle proof…",
+      "fetching_relayer": "Fetching relayer information…",
+      "proof": "Generating proof… (this may take a bit)",
+      "preparing_relayer": "Preparing relayer request…",
+      "submitting_to_relayer": "Submitting to relayer…",
+      "sent_via_relayer": "Vote sent via relayer.",
+      "view_on_explorer": "View on Explorer",
+      "sent": "Vote sent."
+    },
+    "cast": "Cast vote",
+    "use_relayer": "Use relayer (recommended)",
+    "relayer_info": {
+      "when_relayer": "When to use relayer?",
+      "relayer_submits": "Relayer submits your vote on-chain and covers all fees.",
+      "note_3": "Note that relayer can only send a maximum of 3 of your votes per poll.",
+      "uncheck_however": "If you prefer, uncheck to submit the transaction directly from your wallet. However, in this case, tallier will be able to link your vote to your wallet."
+    }
+  },
+  "tally": {
+    "stage": {
+      "fetching_votes": "Fetching votes to tally…",
+      "generating_proof": "Generating proof… (this may take a bit)",
+      "submitted": "Tally batch submitted",
+      "finished": "Tally finished"
+    },
+    "refresh_remaining": "Refresh remaining",
+    "tally_next": "Tally next batch",
+    "finish": "Finish tally",
+    "reset": "Reset tally"
+  },
+  "loading": {
+    "loading": "Loading…",
+    "working": "Working…",
+    "adding": "Adding…",
+    "removing": "Removing…",
+    "sending_tx": "Sending transaction…"
+  },
+  "status": {
+    "starts_in": "Starts in {{time}}",
+    "ends_in": "Ends in {{time}}",
+    "ended_ago": "Ended {{time}} ago"
+  },
+  "time": {
+    "d": "{{days}}d {{hours}}h",
+    "h": "{{hours}}h {{mins}}m",
+    "m": "{{mins}}m",
+    "s": "{{secs}}s"
+  },
+  "page_titles": {
+    "new_poll": "New Poll",
+    "new_census": "New Census",
+    "join_census": "Join Census"
+  },
+  "pagination": {
+    "prev": "Previous page",
+    "next": "Next page"
+  },
+  "language": "Language",
+  "devnet_info": "On devnet, polls are free to create, as SOL can be retrieved via faucets. However, security and correctness are not guaranteed. Also, polls are limited to 3200 voters.",
+  "toggle_theme": "Toggle theme",
+  "unlock_to_view": "Unlock “ZK Accounts” to view this page.",
+  "connect_solana": "Connect your Solana wallet to send the transaction",
+  "not_found": "Not found",
+  "error": "Error:"
+}

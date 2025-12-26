@@ -25,6 +25,7 @@ import { getPoseidon } from "../circomMemo.ts";
 import { MAX_CHOICES } from "../consts.ts";
 import { compressProof } from "../../../helpers/compressSolana.ts";
 import { btn } from "../btn.ts";
+import { useTranslation } from "react-i18next";
 
 const STATE_DEPTH = 64;
 const MAX_BATCH = 6;
@@ -86,6 +87,7 @@ type VotesPage = {
 };
 
 export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
+  const { t } = useTranslation();
   const wallet = useWallet();
   const KR = useKeyringCtx();
   const connection = new Connection(RPC_URL, { commitment: "confirmed" });
@@ -132,7 +134,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       if (busy) return;
       setBusy(true);
       setErr("");
-      setStage("Fetching votes to tally…");
+      setStage(t("tally.stage.fetching_votes"));
       if (!wallet.publicKey) throw new Error("Connect Solana wallet");
       if (!keypair) throw new Error("No active ZK tallier key");
       const poseidon = await getPoseidon();
@@ -148,7 +150,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const batch = page.items;
       if (batch.length === 0) throw new Error("No new votes to tally");
 
-      setStage("Generating proof… (this may take a bit)");
+      setStage(t("tally.stage.generating_proof"));
       const db = new InMemoryDB(new Uint8Array());
       const mt = new Merkletree(db, true, STATE_DEPTH);
       for (
@@ -167,7 +169,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const rootOld = (await mt.root()).bigInt();
 
       const coordinatorSk = keypair.sk;
-      let H = store ? BigInt(store.runningMsgHashHex) : 0n;
+      let H = store ? BigInt("0x" + store.runningMsgHashHex) : 0n;
       const tallyCounts = store
         ? store.tallyCounts.map((x) => BigInt(x))
         : Array(poll.choices.length).fill(0n);
@@ -290,7 +292,9 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         tallyNew[i] = tallyCounts[i] ?? 0n;
       }
 
-      const cumulativeMsgHashOld = store ? BigInt(store.runningMsgHashHex) : 0n;
+      const cumulativeMsgHashOld = store
+        ? BigInt("0x" + store.runningMsgHashHex)
+        : 0n;
 
       const tallyHashNew = F.toObject(poseidon([tallySaltNew, ...tallyNew]));
 
@@ -327,7 +331,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         throw new Error("tallyHashNew mismatch");
       }
 
-      setStage("Sending transaction…");
+      setStage(t("loading.sending_tx"));
       const serialized = compressProof(proof);
       const ixs = [];
       if (!store) {
@@ -382,7 +386,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       await saveTallyStore(newStore);
       setStore(newStore);
       await refreshRemaining();
-      setStage("Tally batch submitted");
+      setStage(t("tally.stage.submitted"));
     } catch (e: any) {
       console.error(e);
       setErr("Error: " + String(e?.message || e));
@@ -397,7 +401,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       if (busy) return;
       setBusy(true);
       setErr("");
-      setStage("Sending transaction…");
+      setStage(t("loading.sending_tx"));
       if (!wallet.publicKey) throw new Error("Connect Solana wallet");
       const finalCounts = store
         ? store.tallyCounts.map((x) => BigInt(x))
@@ -429,7 +433,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
       tx.feePayer = wallet.publicKey;
       await wallet.sendTransaction(tx, connection, { maxRetries: 3 });
-      setStage("Tally finished");
+      setStage(t("tally.stage.finished"));
     } catch (e: any) {
       console.error(e);
       setErr("Error: " + String(e?.message || e));
@@ -450,17 +454,17 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
     await refreshRemaining();
   }, [store, refreshRemaining]);
 
+  const processed = store ? store.processedCount : 0;
+  const rem = remaining ?? 0;
+  const total = processed + rem;
+  const pct = total === 0 ? 100 : Math.max(
+    0,
+    Math.min(100, Math.round((processed / total) * 100)),
+  );
   return (
     <>
       <div className="mt-4">
         {(() => {
-          const processed = store ? store.processedCount : 0;
-          const rem = remaining ?? 0;
-          const total = processed + rem;
-          const pct = total === 0 ? 100 : Math.max(
-            0,
-            Math.min(100, Math.round((processed / total) * 100)),
-          );
           return (
             <div className="flex items-center gap-2">
               <div className="relative h-2 w-full rounded bg-gray-200 dark:bg-zinc-800 overflow-hidden">
@@ -476,9 +480,9 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
               <button
                 onClick={refreshRemaining}
                 disabled={busy}
-                title="Refresh remaining"
+                title={t("tally.refresh_remaining")}
                 className="p-1 rounded hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-60"
-                aria-label="Refresh remaining"
+                aria-label={t("tally.refresh_remaining")}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -506,7 +510,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
             disabled={busy || !wallet.publicKey}
             onClick={onTallyNext}
           >
-            Tally next batch
+            {t("tally.tally_next")}
           </button>
         )}
         {Date.now() / 1000 >= poll.voting_end_time && remaining === 0 &&
@@ -516,7 +520,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
               disabled={busy || !wallet.publicKey}
               onClick={onFinishTally}
             >
-              Finish Tally
+              {t("tally.finish")}
             </button>
           )}
         <span className="text-sm text-purple-600">{stage}</span>
@@ -533,7 +537,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
               disabled={busy}
               onClick={onResetTally}
             >
-              Reset tally
+              {t("tally.reset")}
             </button>
           </>
         )}

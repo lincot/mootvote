@@ -1,10 +1,17 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { Link } from "react-router";
 import { PollStatus } from "../components/PollStatus.tsx";
 import { INDEXER_URL } from "../env.tsx";
 import { keyToLeafHex, useKeyringCtx } from "../keyring.tsx";
 import { btn } from "../btn.ts";
-import { unlockToView } from "../unlockToView.tsx";
+import { useTranslation } from "react-i18next";
+import UnlockToView from "../components/UnlockToView.tsx";
 
 export type PollItem = {
   poll_id: string;
@@ -19,33 +26,22 @@ type Page = { items: PollItem[]; next_before: number | null };
 const POLLS_PAGE_LIMIT = 20;
 
 export default function PollListPage() {
+  const { t } = useTranslation();
+
   useLayoutEffect(() => {
-    document.title = "My Polls";
+    document.title = t("nav.polls");
   });
 
   const KR = useKeyringCtx();
-  const [sp, setSp] = useSearchParams();
-  const role = (sp.get("role") ?? "all roles") as
-    | "all roles"
-    | "voter"
-    | "tallier";
-  const status = (sp.get("status") ?? "all statuses") as
-    | "all statuses"
-    | "Active"
-    | "Upcoming"
-    | "Ended";
+  type Role = "all roles" | "voter" | "tallier";
+  const [role, setRole] = useState<Role>("all roles");
+  type Status = "all statuses" | "active" | "upcoming" | "ended";
+  const [status, setStatus] = useState<Status>("all statuses");
   const [page, setPage] = useState<Page | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [before, setBefore] = useState<number | null>(null);
   const [stack, setStack] = useState<number[]>([]);
-
-  const setQP = (k: string, v: string | null) => {
-    const next = new URLSearchParams(sp);
-    if (v === null) next.delete(k);
-    else next.set(k, v);
-    setSp(next, { replace: true });
-  };
 
   const load = useCallback(async () => {
     try {
@@ -104,58 +100,33 @@ export default function PollListPage() {
   const canPrev = stack.length !== 0;
   const canNext = !!page?.next_before;
 
-  if (KR.locked) return unlockToView;
+  if (KR.locked) return <UnlockToView />;
 
   return (
     <div className="max-w-2xl mx-auto p-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">My Polls</h2>
-        <a
-          href="/polls/new"
+        <h2 className="text-xl font-semibold">{t("nav.polls")}</h2>
+        <Link
+          to="/polls/new"
           className={btn(true)}
         >
-          Create new poll
-        </a>
+          {t("poll_list.create_new_poll")}
+        </Link>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-3">
-        {(["all roles", "voter", "tallier"] as const).map((r) => (
-          <button
-            key={r}
-            onClick={() => {
-              setQP("role", r === "all roles" ? null : r);
-              reset();
-            }}
-            className={`px-3 py-1.5 rounded-full border text-sm ${
-              role === r
-                ? "bg-black text-white dark:bg-white dark:text-black"
-                : ""
-            }`}
-          >
-            {r[0].toUpperCase() + r.slice(1)}
-          </button>
-        ))}
-        <span className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-        {(["all statuses", "Active", "Upcoming", "Ended"] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => {
-              setQP("status", s === "all statuses" ? null : s);
-              reset();
-            }}
-            className={`px-3 py-1.5 rounded-full border text-sm ${
-              status === s
-                ? "bg-black text-white dark:bg-white dark:text-black"
-                : ""
-            }`}
-          >
-            {s[0].toUpperCase() + s.slice(1)}
-          </button>
-        ))}
-      </div>
+      <PollFilters
+        role={role}
+        status={status}
+        setRole={setRole}
+        setStatus={setStatus}
+        reset={reset}
+        t={t}
+      />
 
       {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
-      {loading && <div className="text-sm opacity-70">Loading…</div>}
+      {loading && (
+        <div className="text-sm opacity-70">{t("loading.loading")}</div>
+      )}
 
       {!loading && page && (
         <div className="rounded-xl border divide-y dark:divide-neutral-800 overflow-hidden">
@@ -179,7 +150,7 @@ export default function PollListPage() {
               ? "opacity-50 cursor-not-allowed"
               : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
           }`}
-          aria-label="Previous page"
+          title={t("pagination.prev")}
         >
           ‹
         </button>
@@ -191,7 +162,7 @@ export default function PollListPage() {
               ? "opacity-50 cursor-not-allowed"
               : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
           }`}
-          aria-label="Next page"
+          title={t("pagination.next")}
         >
           ›
         </button>
@@ -227,3 +198,126 @@ const PollRow: React.FC<{ p: PollItem; to?: string }> = ({ p, to }) => {
     </Link>
   );
 };
+
+export function PollFilters(
+  { role, status, setRole, setStatus, reset, t }: any,
+) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const roleMeasureRef = useRef<HTMLDivElement | null>(null);
+  const statusMeasureRef = useRef<HTMLDivElement | null>(null);
+  const dividerMeasureRef = useRef<HTMLSpanElement | null>(null);
+
+  const [wrapStatus, setWrapStatus] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let raf = 0;
+
+    const compute = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const cw = containerRef.current?.getBoundingClientRect().width ?? 0;
+        const rw = roleMeasureRef.current?.getBoundingClientRect().width ?? 0;
+        const sw = statusMeasureRef.current?.getBoundingClientRect().width ?? 0;
+        const dw = dividerMeasureRef.current?.getBoundingClientRect().width ??
+          0;
+
+        // gap-2 between flex children = 8px
+        const gaps = 16;
+
+        setWrapStatus(rw + dw + sw + gaps > cw);
+      });
+    };
+
+    compute();
+
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+
+    window.addEventListener("resize", compute);
+    window.visualViewport?.addEventListener("resize", compute);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("resize", compute);
+      window.visualViewport?.removeEventListener("resize", compute);
+    };
+  }, []);
+
+  const pillBase = "px-3 py-1.5 rounded-full border text-sm whitespace-nowrap";
+  const pillActive = "bg-black text-white dark:bg-white dark:text-black";
+
+  const roles = ["all roles", "voter", "tallier"] as const;
+  const statuses = ["all statuses", "active", "upcoming", "ended"] as const;
+
+  return (
+    <>
+      <div className="absolute -left-[10000px] top-0 pointer-events-none opacity-0">
+        <div ref={roleMeasureRef} className="flex flex-nowrap gap-2 w-max">
+          {roles.map((r) => (
+            <button key={r} className={pillBase}>
+              {t("poll_list." + r)}
+            </button>
+          ))}
+        </div>
+
+        <span ref={dividerMeasureRef} className="inline-block w-px h-6 mx-1" />
+
+        <div ref={statusMeasureRef} className="flex flex-nowrap gap-2 w-max">
+          {statuses.map((s) => (
+            <button key={s} className={pillBase}>
+              {t("poll_list." + s)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div
+        ref={containerRef}
+        className="mb-3 flex flex-wrap gap-2 items-center content-start"
+      >
+        <div className="flex flex-wrap gap-2 items-center content-start">
+          {roles.map((r) => (
+            <button
+              key={r}
+              onClick={() => {
+                setRole(r);
+                reset();
+              }}
+              className={`${pillBase} ${role === r ? pillActive : ""}`}
+            >
+              {t("poll_list." + r)}
+            </button>
+          ))}
+        </div>
+
+        {!wrapStatus
+          ? <span className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+          : <span className="basis-full h-px bg-zinc-200 dark:bg-zinc-700" />}
+
+        <div
+          className={`flex flex-wrap gap-2 items-center content-start ${
+            wrapStatus ? "basis-full" : ""
+          }`}
+        >
+          {statuses.map((s) => (
+            <button
+              key={s}
+              onClick={() => {
+                setStatus(s);
+                reset();
+              }}
+              className={`${pillBase} ${status === s ? pillActive : ""}`}
+            >
+              {t("poll_list." + s)}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}

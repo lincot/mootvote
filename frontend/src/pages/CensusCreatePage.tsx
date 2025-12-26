@@ -6,9 +6,10 @@ import { makeAuthSig } from "../auth.ts";
 import { useNavigate } from "react-router";
 import { CENSUS_URL } from "../env.tsx";
 import { useKeyringCtx } from "../keyring.tsx";
-import { unlockToView } from "../unlockToView.tsx";
 import { INPUT_CN } from "../input.ts";
 import { btn } from "../btn.ts";
+import { useTranslation } from "react-i18next";
+import UnlockToView from "../components/UnlockToView.tsx";
 
 const schema = z.object({
   title: z.string().min(1, "Title required").max(200),
@@ -21,8 +22,10 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function CensusCreatePage() {
+  const { t } = useTranslation();
+
   useLayoutEffect(() => {
-    document.title = "New Census";
+    document.title = t("page_titles.new_census");
   });
 
   const KR = useKeyringCtx();
@@ -86,15 +89,19 @@ export default function CensusCreatePage() {
 
   const disabled = !isValid || !canSubmit || isSubmitting;
 
-  if (KR.locked) return unlockToView;
+  if (KR.locked) return <UnlockToView />;
 
   return (
     <div className="max-w-xl mx-auto p-4">
-      <h2 className="text-xl font-semibold mb-3">Create Census</h2>
+      <h2 className="text-xl font-semibold mb-3">
+        {t("census_creation.create_census")}
+      </h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium">Title</label>
+          <label className="block text-sm font-medium">
+            {t("census_creation.title")}
+          </label>
           <input
             className={INPUT_CN}
             {...register("title")}
@@ -106,7 +113,7 @@ export default function CensusCreatePage() {
 
         <div>
           <label className="block text-sm font-medium">
-            Description (optional)
+            {t("census_creation.description")}
           </label>
           <textarea
             className={INPUT_CN}
@@ -120,13 +127,15 @@ export default function CensusCreatePage() {
 
         <div>
           <div className="flex items-center justify-between">
-            <label className="block text-sm font-medium">Participants</label>
+            <label className="block text-sm font-medium">
+              {t("census_creation.members")}
+            </label>
             <button
               type="button"
               className="text-sm underline"
               onClick={() => append({ name: "" })}
             >
-              + Add
+              + {t("actions.add")}
             </button>
           </div>
           <div className="space-y-2 mt-2">
@@ -134,7 +143,7 @@ export default function CensusCreatePage() {
               <div key={f.id} className="flex gap-2">
                 <input
                   className={INPUT_CN}
-                  placeholder={`Name #${i + 1}`}
+                  placeholder={t("census_creation.name", { num: i + 1 })}
                   {...register(`members.${i}.name`)}
                 />
                 <button
@@ -143,19 +152,21 @@ export default function CensusCreatePage() {
                   onClick={() => remove(i)}
                   disabled={fields.length <= 1}
                 >
-                  Remove
+                  {t("actions.remove")}
                 </button>
               </div>
             ))}
             {errors.members && (
-              <p className="text-red-600 text-xs">Check participant names</p>
+              <p className="text-red-600 text-xs">Check member names</p>
             )}
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button className={btn(!disabled)} disabled={disabled}>
-            {isSubmitting ? "Working…" : "Create census"}
+            {isSubmitting
+              ? t("loading.working")
+              : t("census_creation.create_census")}
           </button>
           {stage && <span className="text-sm text-purple-600">{stage}</span>}
           {err && <div className="text-sm text-red-600">{err}</div>}

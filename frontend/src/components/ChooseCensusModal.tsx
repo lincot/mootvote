@@ -3,6 +3,7 @@ import { makeAuthSig } from "../auth.ts";
 import { createPortal } from "react-dom";
 import { CENSUS_URL } from "../env.tsx";
 import { useKeyringCtx } from "../keyring.tsx";
+import { useTranslation } from "react-i18next";
 
 type CensusListItem = {
   id: number;
@@ -20,6 +21,7 @@ export const ChooseCensusModal: React.FC<{
   onClose,
   onPick,
 }) => {
+  const { t } = useTranslation();
   const KR = useKeyringCtx();
   const [list, setList] = useState<CensusListOut | null>(null);
   const [loading, setLoading] = useState(false);
@@ -121,7 +123,7 @@ export const ChooseCensusModal: React.FC<{
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b dark:border-neutral-800 shrink-0">
-          <div className="font-semibold">Choose census</div>
+          <div className="font-semibold">{t("census_modal.choose_census")}</div>
           <button
             onClick={onClose}
             className="px-2 py-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
@@ -134,7 +136,7 @@ export const ChooseCensusModal: React.FC<{
           {err && <div className="text-sm text-red-600">{err}</div>}
           {KR.locked && (
             <div className="text-sm text-amber-700 dark:text-amber-500">
-              Unlock “ZK Accounts” to view your censuses.
+              {t("census_modal.unlock_zk")}
             </div>
           )}
           {!KR.locked && (
@@ -148,7 +150,9 @@ export const ChooseCensusModal: React.FC<{
 
               <div className="rounded-xl border divide-y dark:border-neutral-700">
                 {loading && (
-                  <div className="p-3 text-sm opacity-70">Loading…</div>
+                  <div className="p-3 text-sm opacity-70">
+                    {t("loading.loading")}
+                  </div>
                 )}
                 {!loading &&
                   shown.map((it) => (
@@ -166,7 +170,9 @@ export const ChooseCensusModal: React.FC<{
                     </button>
                   ))}
                 {!loading && shown.length === 0 && (
-                  <div className="p-3 text-sm text-zinc-500">No matches.</div>
+                  <div className="p-3 text-sm text-zinc-500">
+                    {t("census_modal.no_matches")}
+                  </div>
                 )}
               </div>
             </>
@@ -181,7 +187,7 @@ export const ChooseCensusModal: React.FC<{
               }`}
               onClick={onPrev}
               disabled={!canPrev}
-              aria-label="Prev"
+              title={t("pagination.prev")}
             >
               ‹
             </button>
@@ -193,7 +199,7 @@ export const ChooseCensusModal: React.FC<{
               }`}
               onClick={onNext}
               disabled={!canNext}
-              aria-label="Next"
+              title={t("pagination.next")}
             >
               ›
             </button>

@@ -5,10 +5,13 @@ import { keyToLeafHex, useKeyringCtx } from "../keyring.tsx";
 import type { PollDetail } from "../poll.ts";
 import { Vote } from "../components/Vote.tsx";
 import { Tally } from "../components/Tally.tsx";
+import { useTranslation } from "react-i18next";
+import { formatTimeDiff } from "../components/PollStatus.tsx";
 
 export type PollClock = { label: string; isOver: boolean; isActive: boolean };
 
 function usePollClock(startSec: number, endSec: number): PollClock {
+  const { t } = useTranslation();
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => {
     const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
@@ -16,20 +19,20 @@ function usePollClock(startSec: number, endSec: number): PollClock {
   }, []);
   const isBefore = now < startSec;
   const isOver = now >= endSec;
-  const secs = isBefore ? (startSec - now) : (isOver ? 0 : endSec - now);
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  const fmt = (n: number) => String(n).padStart(2, "0");
+  const secs = isBefore
+    ? (startSec - now)
+    : (isOver ? now - endSec : endSec - now);
   const label = isBefore
-    ? `Starts in ${fmt(h)}:${fmt(m)}:${fmt(s)}`
+    ? t("status.starts_in", { time: formatTimeDiff(secs) })
     : isOver
-    ? `Ended`
-    : `Ends in ${fmt(h)}:${fmt(m)}:${fmt(s)}`;
+    ? t("status.ended_ago", { time: formatTimeDiff(secs) })
+    : t("status.ends_in", { time: formatTimeDiff(secs) });
+
   return { label, isOver, isActive: !isBefore && !isOver };
 }
 
 export default function PollDetailPage() {
+  const { t } = useTranslation();
   const { pollId } = useParams();
   const [sp, setSp] = useSearchParams();
   const KR = useKeyringCtx();
@@ -123,6 +126,8 @@ export default function PollDetailPage() {
            ${
           tab === t
             ? "bg-black text-white dark:bg-white dark:text-black"
+            : disabled
+            ? ""
             : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
         }
            ${disabled ? "opacity-50 cursor-not-allowed" : ""}
@@ -136,14 +141,14 @@ export default function PollDetailPage() {
     const hasTally = !!poll?.tally;
     return (
       <div className="flex gap-2 mb-3">
-        {TabBtn("overview", "Overview")}
+        {TabBtn("overview", t("poll.overview"))}
         {TabBtn(
           "vote",
-          "Vote",
+          t("poll.vote"),
           locked || hasTally || !isVoter || !clock.isActive,
         )}
-        {TabBtn("tally", "Tally", locked || hasTally || !isCoordinator)}
-        {TabBtn("results", "Results", !clock.isOver)}
+        {TabBtn("tally", t("poll.tally"), locked || hasTally || !isCoordinator)}
+        {TabBtn("results", t("poll.results"), !clock.isOver)}
       </div>
     );
   };
@@ -157,7 +162,9 @@ export default function PollDetailPage() {
           <div className="flex items-start justify-between mb-2">
             <div>
               <h2 className="text-xl font-semibold">{poll.title}</h2>
-              <div className="text-xs text-zinc-500">Poll #{poll.poll_id}</div>
+              <div className="text-xs text-zinc-500">
+                {t("poll.poll", { id: poll.poll_id })}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm opacity-70">{clock.label}</span>
@@ -166,55 +173,50 @@ export default function PollDetailPage() {
 
           {KR.locked && (
             <div className="mb-3 text-sm text-amber-700 dark:text-amber-400">
-              Unlock “ZK Accounts” to vote or tally.
+              {t("poll.unlock_zk")}
             </div>
           )}
 
           <Tabs />
 
-          {/* Overview */}
           {tab === "overview" && (
             <div className="max-w-xl mx-auto p-4 rounded-xl border">
               <div className="mb-2">
                 <div className="text-sm text-zinc-600 dark:text-zinc-300">
-                  Choices:
+                  {t("poll.choices")}:
                 </div>
                 <ul className="list-disc ml-6 text-sm">
                   {poll.choices.map((c, i) => <li key={i}>{c}</li>)}
                 </ul>
               </div>
               <div className="text-xs text-zinc-500">
-                Fee: {poll.fee} · Platform fee: {poll.platform_fee}
+                {t("poll.fee")}: {poll.fee} · {t("poll.platform_fee")}:{" "}
+                {poll.platform_fee}
               </div>
             </div>
           )}
 
-          {/* Vote (embedded) */}
           {tab === "vote" && (
             <div className="max-w-xl mx-auto p-4 rounded-xl border">
               <Vote poll={poll} />
             </div>
           )}
 
-          {/* Tally (embedded) */}
           {tab === "tally" && (
             <div className="max-w-xl mx-auto p-4 rounded-xl border">
               <Tally poll={poll} />
             </div>
           )}
 
-          {/* Results */}
           {tab === "results" &&
             (
               <>
-                {!poll.tally && <p>Waiting for tallier to count the votes…</p>}
+                {!poll.tally && <p>{t("poll.waiting_for_tallier")}</p>}
                 {poll.tally && (
                   <div className="max-w-xl mx-auto p-4 rounded-xl border">
-                    {/* <ResultsBars tally={poll.tally} labels={poll.choices} />*/}
                     <ResultsBars
                       tally={poll.tally}
                       choices={poll.choices}
-                      title="Results"
                     />
                   </div>
                 )}
@@ -227,10 +229,10 @@ export default function PollDetailPage() {
 }
 
 const ResultsBars: React.FC<{
-  title: string;
   choices: string[];
   tally: number[];
-}> = ({ title, choices, tally }) => {
+}> = ({ choices, tally }) => {
+  const { t } = useTranslation();
   const data = useMemo(() => {
     const pairs = choices.map((label, i) => ({
       label,
@@ -245,7 +247,6 @@ const ResultsBars: React.FC<{
 
   return (
     <div className="mt-3">
-      <h2 className="text-lg font-semibold mb-3">{title}</h2>
       <div className="space-y-3">
         {data.pairs.map((p) => {
           const pct = data.total === 0
@@ -270,7 +271,8 @@ const ResultsBars: React.FC<{
           );
         })}
         <div className="text-xs text-gray-500 dark:text-zinc-400">
-          Total votes: <span className="tabular-nums">{data.total}</span>
+          {t("poll.total_votes")}:{" "}
+          <span className="tabular-nums">{data.total}</span>
         </div>
       </div>
     </div>

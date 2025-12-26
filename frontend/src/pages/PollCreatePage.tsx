@@ -28,6 +28,8 @@ import { Help } from "../components/Help.tsx";
 import { CENSUS_DEPTH, MAX_CHOICES } from "../consts.ts";
 import { turboBatchUpload } from "../arweave.ts";
 import { INPUT_CN } from "../input.ts";
+import { useTranslation } from "react-i18next";
+import ConnectSolana from "../components/ConnectSolana.tsx";
 
 const MAX_POLL_DURATION = 365 * 24 * 60 * 60;
 
@@ -88,12 +90,6 @@ const schema = z.discriminatedUnion("coordMode", [
 ]);
 
 type FormValues = z.infer<typeof schema>;
-type Stage =
-  | "idle"
-  | "uploading data to Arweave"
-  | "creating poll"
-  | "done"
-  | "error";
 
 type ParsedCensus = {
   leaves: bigint[];
@@ -134,8 +130,9 @@ function localInputToUnixSeconds(s: string): number {
 }
 
 export const PollCreatePage: React.FC<{}> = () => {
+  const { t } = useTranslation();
   useLayoutEffect(() => {
-    document.title = "New Poll";
+    document.title = t("page_titles.new_poll");
   });
 
   const wallet = useWallet();
@@ -184,13 +181,13 @@ export const PollCreatePage: React.FC<{}> = () => {
     control,
     name: "choices",
   });
-  const [stage, setStage] = useState<Stage>("idle");
+  const [stage, setStage] = useState<string>("");
   const [errMsg, setErrMsg] = useState("");
 
   const onSubmit = async (data: FormValues) => {
     try {
       setErrMsg("");
-      setStage("uploading data to Arweave");
+      setStage(t("poll_creation.stage.arweave"));
 
       if (!wallet.publicKey || !wallet.signMessage || !wallet.signTransaction) {
         throw new Error("Connect your Solana wallet first");
@@ -223,7 +220,7 @@ export const PollCreatePage: React.FC<{}> = () => {
       console.log("Description URL:", descUrl);
       console.log("Census URL:", censusUrl);
 
-      setStage("creating poll");
+      setStage(t("loading.sending_tx"));
 
       const start = localInputToUnixSeconds(data.start);
       const end = localInputToUnixSeconds(data.end);
@@ -269,11 +266,11 @@ export const PollCreatePage: React.FC<{}> = () => {
 
       await wallet.sendTransaction(tx, connection!, { maxRetries: 3 });
 
-      setStage("done");
+      setStage(t("poll_creation.stage.created"));
     } catch (e: any) {
       console.error(e);
       setErrMsg("Error: " + String(e?.message || e));
-      setStage("error");
+      setStage("");
     }
   };
 
@@ -316,25 +313,37 @@ export const PollCreatePage: React.FC<{}> = () => {
     }
   };
 
+  console.log(
+    "disabled",
+    isSubmitting,
+    !isValid,
+    !wallet.publicKey,
+    coordMode === "active" && !KR.accounts[KR.active],
+  );
   const disabled = isSubmitting || !isValid || !wallet.publicKey ||
-    (stage !== "idle" && stage !== "done" && stage !== "error") ||
     (coordMode === "active" && !KR.accounts[KR.active]);
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
       className="max-w-xl mx-auto p-4"
     >
-      <h2 className="text-xl font-semibold mb-3">Create Poll</h2>
+      <h2 className="text-xl font-semibold mb-3">
+        {t("poll_creation.create_poll")}
+      </h2>
 
       <div className="flex-col gap-4">
         <div className="space-y-3">
-          <label className="block text-sm font-medium">Poll title</label>
+          <label className="block text-sm font-medium">
+            {t("poll_creation.title")}
+          </label>
           <input className={INPUT_CN} {...register("title")} />
           {errors.title && (
             <p className="text-red-500 text-xs">{errors.title.message}</p>
           )}
 
-          <label className="block text-sm font-medium">Start</label>
+          <label className="block text-sm font-medium">
+            {t("poll_creation.start")}
+          </label>
           <input
             type="datetime-local"
             className={INPUT_CN}
@@ -344,7 +353,9 @@ export const PollCreatePage: React.FC<{}> = () => {
             <p className="text-red-500 text-xs">{errors.start.message}</p>
           )}
 
-          <label className="block text-sm font-medium">End</label>
+          <label className="block text-sm font-medium">
+            {t("poll_creation.end")}
+          </label>
           <input
             type="datetime-local"
             className={INPUT_CN}
@@ -355,7 +366,9 @@ export const PollCreatePage: React.FC<{}> = () => {
           )}
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium">Tallier key</label>
+            <label className="block text-sm font-medium">
+              {t("poll_creation.tallier_key")}
+            </label>
             <div className="flex gap-3 items-center">
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -364,11 +377,11 @@ export const PollCreatePage: React.FC<{}> = () => {
                   {...register("coordMode")}
                   defaultChecked
                 />
-                Use keyring
+                {t("poll_creation.use_keyring")}
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="radio" value="manual" {...register("coordMode")} />
-                Enter manually
+                {t("poll_creation.enter_manually")}
               </label>
             </div>
             {}
@@ -400,7 +413,7 @@ export const PollCreatePage: React.FC<{}> = () => {
 
           <div>
             <label className="block text-sm font-medium">
-              Poll fee (lamports)
+              {t("poll_creation.poll_fee")}
             </label>
             <input
               placeholder="e.g. 200000"
@@ -416,7 +429,7 @@ export const PollCreatePage: React.FC<{}> = () => {
 
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">
-              Choices (1–{MAX_CHOICES})
+              {t("poll_creation.choices")}
             </label>
             <button
               type="button"
@@ -424,7 +437,7 @@ export const PollCreatePage: React.FC<{}> = () => {
               onClick={() => append({ value: "" })}
               disabled={fields.length >= MAX_CHOICES}
             >
-              + Add
+              + {t("actions.add")}
             </button>
           </div>
 
@@ -434,7 +447,7 @@ export const PollCreatePage: React.FC<{}> = () => {
                 <input
                   className={INPUT_CN + " flex-1"}
                   {...register(`choices.${i}.value` as const)}
-                  placeholder={`Choice #${i + 1}`}
+                  placeholder={t("poll_creation.choice", { num: i + 1 })}
                 />
                 <button
                   type="button"
@@ -442,7 +455,7 @@ export const PollCreatePage: React.FC<{}> = () => {
                   onClick={() => remove(i)}
                   disabled={fields.length <= 1}
                 >
-                  Remove
+                  {t("actions.remove")}
                 </button>
               </div>
             ))}
@@ -454,7 +467,9 @@ export const PollCreatePage: React.FC<{}> = () => {
           </div>
 
           <fieldset className="space-y-2">
-            <label className="block text-sm font-medium">Census source</label>
+            <label className="block text-sm font-medium">
+              {t("poll_creation.census_source")}
+            </label>
             <div className="flex items-center gap-4 text-sm">
               <label className="inline-flex items-center gap-2">
                 <input
@@ -466,7 +481,7 @@ export const PollCreatePage: React.FC<{}> = () => {
                       shouldValidate: true,
                     })}
                 />
-                Use existing census
+                {t("poll_creation.use_existing_census")}
               </label>
               <label className="inline-flex items-center gap-2">
                 <input
@@ -478,7 +493,7 @@ export const PollCreatePage: React.FC<{}> = () => {
                       shouldValidate: true,
                     })}
                 />
-                Upload file
+                {t("poll_creation.upload_file")}
               </label>
             </div>
             {errors.censusSource && (
@@ -492,27 +507,31 @@ export const PollCreatePage: React.FC<{}> = () => {
             <div className="mt-3">
               <div className="flex gap-2">
                 <label className="mb-2 block text-sm font-medium">
-                  Census (.bin)
+                  {t("poll_creation.census_bin")}
                 </label>
 
                 <Help
-                  title="What is census.bin?"
+                  title={t("poll_creation.census_format.what_is_census_bin")}
                   below={false}
                   content={
                     <div>
-                      <p className="mb-1 font-medium">Census file format</p>
+                      <p className="mb-1 font-medium">
+                        {t("poll_creation.census_format.census_file_format")}
+                      </p>
                       <ul className="list-disc ml-4 space-y-1">
-                        <li>Binary file, no header.</li>
+                        <li>{t("poll_creation.census_format.binary_file")}</li>
                         <li>
-                          Concatenation of leaves, one per voter, each exactly
+                          {t(
+                            "poll_creation.census_format.concatenation_of_leaves",
+                          )} <b>{t("poll_creation.census_format.bytes32")}</b>
                           {" "}
-                          <b>32 bytes</b> (big-endian).
+                          ({t("poll_creation.census_format.be")}).
                         </li>
                         <li>
-                          Each leaf is <code>Poseidon(pubX, pubY)</code>{" "}
-                          over BabyJub, encoded as a field element (BE).
+                          {t("poll_creation.census_format.each_leaf_is")}{" "}
+                          <code>Poseidon(pubX, pubY)</code>{" "}
+                          {t("poll_creation.census_format.over_baby")}
                         </li>
-                        <li>No padding; file size must be divisible by 32.</li>
                       </ul>
                     </div>
                   }
@@ -553,11 +572,11 @@ export const PollCreatePage: React.FC<{}> = () => {
                   onClick={() => setOpenChoose(true)}
                   className="shrink-0 rounded-lg px-3 py-2 border dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  Choose census…
+                  {t("poll_creation.choose_census")}
                 </button>
                 {(control._formValues as FormValues).selectedCensusId && (
                   <div className="text-sm">
-                    Chosen:{" "}
+                    {t("poll_creation.chosen")}{" "}
                     <span className="font-medium">
                       {(control._formValues as FormValues).selectedCensusTitle}
                     </span>
@@ -578,16 +597,15 @@ export const PollCreatePage: React.FC<{}> = () => {
         </div>
       </div>
 
+      <ConnectSolana />
       <div className="mt-4 flex items-center gap-3">
         <button
           className={btn(!disabled)}
           disabled={disabled}
         >
-          {isSubmitting ? "Working…" : "Create poll"}
+          {isSubmitting ? t("loading.working") : t("poll_creation.create_poll")}
         </button>
-        {stage !== "idle" && (
-          <span className="text-sm text-purple-600">{stage}</span>
-        )}
+        <span className="text-sm text-purple-600">{stage}</span>
       </div>
 
       {errMsg && (
@@ -608,12 +626,13 @@ export const PollCreatePage: React.FC<{}> = () => {
 };
 
 const ActiveCoordinatorSummary: React.FC = () => {
+  const { t } = useTranslation();
   const KR = useKeyringCtx();
   const acc = KR.accounts[KR.active];
   if (!acc) {
     return (
       <div className="text-xs text-amber-700 dark:text-amber-500">
-        No active ZK account. Open “ZK Accounts” and create/select one.
+        {t("poll_creation.no_zk_account")}
       </div>
     );
   }
@@ -621,7 +640,8 @@ const ActiveCoordinatorSummary: React.FC = () => {
   const pky = "0x" + acc.pub[1].toString(16).padStart(64, "0");
   return (
     <div className="rounded-lg border p-2 bg-gray-50 dark:bg-zinc-800/50 text-xs">
-      Using account: <span className="font-medium">{acc.name}</span>
+      {t("poll_creation.using_account") + " "}
+      <span className="font-medium">{acc.name}</span>
       <div className="font-mono break-all mt-1">X: {pkx}</div>
       <div className="font-mono break-all">Y: {pky}</div>
     </div>
@@ -629,11 +649,12 @@ const ActiveCoordinatorSummary: React.FC = () => {
 };
 
 const ComputedCensusHints = ({ control }: { control: any }) => {
+  const { t } = useTranslation();
   const values = control._formValues as FormValues;
   return (
     <div className="text-xs mt-1 text-neutral-600 dark:text-neutral-300">
       {values?.censusCount
-        ? <div>Entry count: {values.censusCount}</div>
+        ? <div>{t("poll_creation.entry_count")} {values.censusCount}</div>
         : null}
     </div>
   );

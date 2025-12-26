@@ -1,19 +1,29 @@
-function formatDiff(ms: number): string {
-  const s = Math.max(1, Math.floor(ms / 1000));
+import { useTranslation } from "react-i18next";
+
+export function formatTimeDiff(sec: number): string {
+  const { t } = useTranslation();
+  const s = Math.max(1, Math.floor(sec));
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  if (d > 0) return t("time.d", { days: d, hours: h });
+  if (h > 0) return t("time.h", { hours: h, mins: m });
+  if (m > 0) return t("time.m", { mins: m });
+  return t("time.s", { secs: s });
 }
 
 function pollStatus(nowMs: number, startSec: number, endSec: number): string {
-  const startMs = startSec * 1000;
-  const endMs = endSec * 1000;
-  if (nowMs < startMs) return `Starts in ${formatDiff(startMs - nowMs)}`;
-  if (nowMs < endMs) return `Ends in ${formatDiff(endMs - nowMs)}`;
-  return `Ended ${formatDiff(nowMs - endMs)} ago`;
+  const { t } = useTranslation();
+
+  if (nowMs < 1000 * startSec) {
+    return t("status.starts_in", {
+      time: formatTimeDiff(startSec - nowMs / 1000),
+    });
+  }
+  if (nowMs < 1000 * endSec) {
+    return t("status.ends_in", { time: formatTimeDiff(endSec - nowMs / 1000) });
+  }
+  return t("status.ended_ago", { time: formatTimeDiff(nowMs / 1000 - endSec) });
 }
 
 function pollStatusMeta(

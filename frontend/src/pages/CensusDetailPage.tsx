@@ -3,7 +3,8 @@ import { useParams } from "react-router";
 import { makeAuthSig } from "../auth.ts";
 import { CENSUS_URL } from "../env.tsx";
 import { useKeyringCtx } from "../keyring.tsx";
-import { unlockToView } from "../unlockToView.tsx";
+import { useTranslation } from "react-i18next";
+import UnlockToView from "../components/UnlockToView.tsx";
 
 type MemberRow = {
   id: number;
@@ -27,6 +28,7 @@ type Invite = { member_id: number; name: string; token: string };
 const MEMBER_PAGE_LIMIT = 20;
 
 export default function CensusDetailPage() {
+  const { t } = useTranslation();
   const { censusId } = useParams();
   const cid = Number(censusId);
   const KR = useKeyringCtx();
@@ -77,7 +79,7 @@ export default function CensusDetailPage() {
     load(null);
   }, [KR]);
 
-  if (KR.locked) return unlockToView;
+  if (KR.locked) return <UnlockToView />;
 
   const next = () => {
     const after = page!.items[page!.items.length - 1].id;
@@ -170,12 +172,14 @@ export default function CensusDetailPage() {
           {page.is_creator && (
             <div className="mb-4 rounded-xl border p-3">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">Add a participant</div>
+                <div className="text-sm font-medium">
+                  {t("census.add_member")}
+                </div>
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <input
                   className="w-full rounded border px-3 py-2"
-                  placeholder="Participant name"
+                  placeholder={t("census.member_name")}
                   value={addName}
                   onChange={(e) => setAddName(e.target.value)}
                 />
@@ -187,7 +191,7 @@ export default function CensusDetailPage() {
                     addBusy ? "bg-gray-400" : "bg-black hover:bg-gray-800"
                   }`}
                 >
-                  {addBusy ? "Adding…" : "Add"}
+                  {addBusy ? t("loading.adding") : t("actions.add")}
                 </button>
               </div>
               <div className="mt-2 flex items-center gap-3">
@@ -198,7 +202,7 @@ export default function CensusDetailPage() {
               {addInvite && (
                 <div className="mt-3">
                   <div className="text-sm font-medium mb-2">
-                    Added participant
+                    {t("census.added_member")}
                   </div>
                   <div className="rounded-lg border p-2 flex items-center justify-between gap-3 text-sm">
                     <div className="truncate font-medium">
@@ -221,7 +225,7 @@ export default function CensusDetailPage() {
                       m.joined ? "text-emerald-700" : "text-zinc-500"
                     }`}
                   >
-                    {!m.joined && "hasn't joined yet"}
+                    {!m.joined && t("census.has_not_joined")}
                     {m.pub_x && <>pkX: {m.pub_x.replace(/^0+/, "")}</>}
                   </div>
                 </div>
@@ -233,16 +237,19 @@ export default function CensusDetailPage() {
                       className="px-2 py-1 rounded border text-xs hover:bg-red-50 text-red-700 border-red-200"
                       onClick={() => onRemoveMember(m.id, m.name)}
                       disabled={removingId === m.id}
-                      title="Remove member"
                     >
-                      {removingId === m.id ? "Removing…" : "Remove"}
+                      {removingId === m.id
+                        ? t("loading.removing")
+                        : t("actions.remove")}
                     </button>
                   )}
                 </div>
               </div>
             ))}
             {page.items.length === 0 && (
-              <div className="p-4 text-sm text-zinc-500">No members yet.</div>
+              <div className="p-4 text-sm text-zinc-500">
+                {t("census.no_members_yet")}
+              </div>
             )}
           </div>
         </>
@@ -257,7 +264,7 @@ export default function CensusDetailPage() {
           }`}
           onClick={prev}
           disabled={loading || stack.length === 0}
-          aria-label="Previous page"
+          title={t("pagination.prev")}
         >
           ‹
         </button>
@@ -269,7 +276,7 @@ export default function CensusDetailPage() {
           }`}
           onClick={next}
           disabled={loading || !page || !page.any_left}
-          aria-label="Next page"
+          title={t("pagination.next")}
         >
           ›
         </button>
@@ -281,6 +288,7 @@ export default function CensusDetailPage() {
 type CopyStatus = "idle" | "copied" | "error";
 
 function InviteCopy({ cid, token }: { cid: number; token: string }) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<CopyStatus>("idle");
 
   const url = useMemo(
@@ -305,10 +313,10 @@ function InviteCopy({ cid, token }: { cid: number; token: string }) {
   };
 
   const label = status === "copied"
-    ? "Invite link copied"
+    ? t("census.invite_copied")
     : status === "error"
-    ? "Copy failed, click to try again"
-    : "Copy invite link";
+    ? t("census.copy_failed")
+    : t("census.copy_invite");
 
   return (
     <div className="inline-flex items-center gap-2 max-w-full">

@@ -27,6 +27,8 @@ import { randomScalar } from "../../../helpers/key.ts";
 import { bytesToHex } from "@noble/hashes/utils";
 import { btn } from "../btn.ts";
 import { Help } from "./Help.tsx";
+import { useTranslation } from "react-i18next";
+import ConnectSolana from "./ConnectSolana.tsx";
 
 const VOTE_WASM_URL = "/zk/Vote/Vote.wasm";
 const VOTE_ZKEY_URL = "/zk/Vote/groth16_pkey.zkey";
@@ -49,6 +51,7 @@ type RelayRequestBody = {
 };
 
 export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
+  const { t } = useTranslation();
   const wallet = useWallet();
   const KR = useKeyringCtx();
   const RK = useRevoKeysCtx();
@@ -77,7 +80,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       }
       if (selected == null) throw new Error("Select a choice");
 
-      setStage("Preparing keys & proof…");
+      setStage(t("vote.stage.preparing"));
       const eddsa = await getEddsa();
       const babyjub = await getBabyjub();
       const poseidon = await getPoseidon();
@@ -104,7 +107,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const pollId = BigInt(poll.poll_id);
       const choice = BigInt(selected + 1);
 
-      setStage("Downloading census & building Merkle proof…");
+      setStage(t("vote.stage.downloading"));
       const ab: ArrayBuffer = await fetch(poll.census_url).then((r) =>
         r.arrayBuffer()
       );
@@ -150,7 +153,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         ]),
       );
 
-      let ephSk = randomScalar(babyjub.subOrder);
+      const ephSk = randomScalar(babyjub.subOrder);
       const ephPkRaw = babyjub.mulPointEscalar(babyjub.Base8, ephSk);
       const sharedKeyRaw = babyjub.mulPointEscalar(
         [F.e(PK[0]), F.e(PK[1])],
@@ -188,7 +191,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       let relayerId = 0n;
       let relayerNu;
       if (useRelayer) {
-        setStage("Fetching relayer information…");
+        setStage(t("vote.stage.fetching_relayer"));
         const relayerConfig = await fetchRelayerConfig(connection);
         if (!relayerConfig) {
           throw new Error("Relayer not initialized");
@@ -199,7 +202,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         relayerNu = F.toObject(poseidon([sigHash, relayerId]));
       }
 
-      setStage("Generating proof… (this may take a bit)");
+      setStage(t("vote.stage.proof"));
       const inputs = {
         censusRoot: BigInt("0x" + poll.census_root),
         pollId,
@@ -226,7 +229,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const serializedProof = compressProof(proof);
 
       if (useRelayer) {
-        setStage("Preparing relayer request…");
+        setStage(t("vote.stage.preparing_relayer"));
 
         const msgHashBig = F.toObject(
           poseidon([ephPk[0], ephPk[1], nonce, ...ciphertext]),
@@ -246,10 +249,6 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           x: toBytesBE32(ephPk[0]),
           y: toBytesBE32(ephPk[1]),
         };
-
-        if (!RELAYER_URL) {
-          throw new Error("Relayer URL is not configured.");
-        }
 
         const dataU8 = serializeVoteData({
           ciphertext: ciphertextBytes,
@@ -290,7 +289,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           accounts,
         };
 
-        setStage("Submitting to relayer…");
+        setStage(t("vote.stage.submitting_to_relayer"));
         const resp = await fetch(`${RELAYER_URL}/relay`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -307,19 +306,19 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         const url = `https://explorer.solana.com/tx/${signature}${q}`;
         setStage(
           <>
-            Vote sent via relayer.&nbsp;
+            {t("vote.stage.sent_via_relayer")}&nbsp;
             <a
               href={url}
               target="_blank"
               rel="noreferrer"
               className="underline underline-offset-2"
             >
-              View on Explorer
+              {t("vote.stage.view_on_explorer")}
             </a>
           </>,
         );
       } else {
-        setStage("Sending transaction…");
+        setStage(t("loading.sending_tx"));
         const platform = await fetchPlatformConfig(connection);
         const ix: InstructionWithCu = await vote({
           payer: wallet.publicKey!,
@@ -346,13 +345,13 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
         tx.feePayer = wallet.publicKey!;
         await wallet.sendTransaction(tx, connection, { maxRetries: 3 });
-        setStage("Vote sent!");
+        setStage(t("vote.stage.sent"));
       }
 
       await RK.setForPoll(accountId, pollIdBig, { ...newRec, title });
     } catch (e: any) {
       console.error(e);
-      setErr("Error: " + String(e?.message || e));
+      setErr(t("error") + " " + String(e?.message || e));
       setStage("");
     } finally {
       setBusy(false);
@@ -363,35 +362,24 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
     return <></>;
   }
 
-  const now = Math.floor(Date.now() / 1000);
-  const active = now >= poll.voting_start_time && now <= poll.voting_end_time;
-
   return (
     <>
-      {choices.length === 0
-        ? (
-          <div className="text-sm opacity-70">
-            No choices found in description.
-          </div>
-        )
-        : (
-          <div className="space-y-2">
-            {choices.map((c, i) => (
-              <label
-                key={i}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  name="choice"
-                  checked={selected === i}
-                  onChange={() => setSelected(i)}
-                />
-                <span>{c}</span>
-              </label>
-            ))}
-          </div>
-        )}
+      <div className="space-y-2">
+        {choices.map((c, i) => (
+          <label
+            key={i}
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <input
+              type="radio"
+              name="choice"
+              checked={selected === i}
+              onChange={() => setSelected(i)}
+            />
+            <span>{c}</span>
+          </label>
+        ))}
+      </div>
 
       <div className="mt-4 flex items-center gap-3">
         <button
@@ -399,17 +387,12 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           disabled={disabled}
           onClick={onVoteClick}
         >
-          {active ? "Cast vote" : "Voting closed"}
+          {t("vote.cast")}
         </button>
         {stage && <span className="text-sm text-purple-600">{stage}</span>}
       </div>
       {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
-      {!useRelayer && !wallet.publicKey && (
-        <div className="mt-2 text-xs text-amber-700 dark:text-amber-500">
-          Connect your Solana wallet.
-        </div>
-      )}
-
+      {!useRelayer && <ConnectSolana />}
       <div className="mt-3 flex items-center">
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -418,21 +401,20 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
             checked={useRelayer}
             onChange={(e) => setUseRelayer(e.target.checked)}
           />
-          Use relayer (recommended)
+          {t("vote.use_relayer")}
           <Help
-            title={"When to use relayer?"}
+            title={t("vote.relayer_info.when_relayer")}
             below={true}
             content={
               <div>
                 <p>
-                  Relayer submits your vote on-chain and covers all fees.<br />
+                  {t("vote.relayer_info.relayer_submits")}
                   <br />
-                  Note that relayer can only send a maximum of 3 of your votes
-                  per poll.<br />
                   <br />
-                  If you prefer, uncheck to submit the transaction directly from
-                  your wallet. However, in this case, tallier will be able to
-                  link your vote to your wallet.
+                  {t("vote.relayer_info.note_3")}
+                  <br />
+                  <br />
+                  {t("vote.relayer_info.uncheck_however")}
                 </p>
               </div>
             }

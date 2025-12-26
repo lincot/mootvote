@@ -6,6 +6,8 @@ import "./index.css";
 import { CLUSTER, GITHUB_URL, OTHER_CLUSTER_URL } from "./env.tsx";
 import { ThemeToggle } from "./components/ThemeToggle.tsx";
 import { ZkAccountsButton } from "./components/ZkAccountsButton.tsx";
+import LanguageSelect from "./components/LanguageSelect.tsx";
+import { useTranslation } from "react-i18next";
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -21,6 +23,8 @@ export const Layout: React.FC<
 > = (
   { setShowAccounts },
 ) => {
+  const { t } = useTranslation();
+
   const [open, setOpen] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerH, setHeaderH] = useState<number>(72);
@@ -47,14 +51,14 @@ export const Layout: React.FC<
             <button
               className="md:hidden rounded-lg border px-2 py-1 text-sm"
               onClick={() => setOpen((v) => !v)}
-              aria-label="Toggle navigation"
+              aria-label={t("nav.aria.toggle")}
             >
               ☰
             </button>
             <h1 className="text-xl font-bold leading-none">
               <Link
                 to="/"
-                aria-label="Go to home"
+                aria-label={t("nav.aria.home")}
               >
                 MootVote
               </Link>
@@ -62,7 +66,7 @@ export const Layout: React.FC<
             {CLUSTER === "devnet" && (
               <span
                 className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
-                title="On devnet, polls are free to create, as SOL can be retrieved via faucets. However, security and correctness are not guaranteed."
+                title={t("devnet_info")}
               >
                 DEVNET
               </span>
@@ -80,6 +84,7 @@ export const Layout: React.FC<
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <LanguageSelect />
             <ZkAccountsButton onClick={() => setShowAccounts(true)} />
             <WalletMultiButton />
           </div>
@@ -93,9 +98,11 @@ export const Layout: React.FC<
           style={{ top: headerH, height: `calc(100vh - ${headerH + 1}px)` }}
         >
           <nav className="space-y-1">
-            <NavLink to="/polls" className={navItemClass}>My Polls</NavLink>
+            <NavLink to="/polls" className={navItemClass}>
+              {t("nav.polls")}
+            </NavLink>
             <NavLink to="/censuses" className={navItemClass}>
-              My Censuses
+              {t("nav.censuses")}
             </NavLink>
           </nav>
 
@@ -147,14 +154,14 @@ export const Layout: React.FC<
                     className={navItemClass}
                     onClick={() => setOpen(false)}
                   >
-                    My Polls
+                    {t("nav.polls")}
                   </NavLink>
                   <NavLink
                     to="/censuses"
                     className={navItemClass}
                     onClick={() => setOpen(false)}
                   >
-                    My Censuses
+                    {t("nav.censuses")}
                   </NavLink>
                 </nav>
 

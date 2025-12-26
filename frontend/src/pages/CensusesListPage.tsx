@@ -3,8 +3,9 @@ import { Link, useNavigate } from "react-router";
 import { makeAuthSig } from "../auth.ts";
 import { CENSUS_URL } from "../env.tsx";
 import { useKeyringCtx } from "../keyring.tsx";
-import { unlockToView } from "../unlockToView.tsx";
 import { btn } from "../btn.ts";
+import { useTranslation } from "react-i18next";
+import UnlockToView from "../components/UnlockToView.tsx";
 
 const CENSUS_PAGE_LIMIT = 20;
 
@@ -21,8 +22,10 @@ type ListOut = {
 };
 
 export default function CensusesListPage() {
+  const { t } = useTranslation();
+
   useLayoutEffect(() => {
-    document.title = "My Censuses";
+    document.title = t("nav.censuses");
   });
 
   const KR = useKeyringCtx();
@@ -77,7 +80,7 @@ export default function CensusesListPage() {
   }, [KR.locked, KR.active, load]);
 
   if (KR.locked) {
-    return unlockToView;
+    return <UnlockToView />;
   }
 
   const onNext = () => {
@@ -98,13 +101,13 @@ export default function CensusesListPage() {
   return (
     <div className="max-w-xl mx-auto p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">My Censuses</h2>
+        <h2 className="text-xl font-semibold">{t("nav.censuses")}</h2>
         <button
           type="button"
           onClick={goCreate}
           className={btn(true)}
         >
-          Create new census
+          {t("census_list.create_new_census")}
         </button>
       </div>
 
@@ -123,7 +126,7 @@ export default function CensusesListPage() {
               <div className="flex items-center gap-3">
                 {it.is_creator && (
                   <span className="ml-3 text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                    Creator
+                    {t("census_list.creator")}
                   </span>
                 )}
                 <div className="shrink-0 text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 hidden sm:block">
@@ -134,7 +137,9 @@ export default function CensusesListPage() {
           </Link>
         ))}
         {(!page || page.items.length === 0) && !loading && (
-          <div className="p-4 text-sm text-zinc-500">No censuses yet.</div>
+          <div className="p-4 text-sm text-zinc-500">
+            {t("census_list.no_censuses")}
+          </div>
         )}
       </div>
 
@@ -148,8 +153,7 @@ export default function CensusesListPage() {
           ].join(" ")}
           onClick={onPrev}
           disabled={!canPrev || loading}
-          aria-label="Previous page"
-          title="Previous"
+          title={t("pagination.prev")}
         >
           ‹
         </button>
@@ -162,8 +166,7 @@ export default function CensusesListPage() {
           ].join(" ")}
           onClick={onNext}
           disabled={!canNext || loading}
-          aria-label="Next page"
-          title="Next"
+          title={t("pagination.next")}
         >
           ›
         </button>
