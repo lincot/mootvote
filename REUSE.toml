@@ -6,6 +6,11 @@ SPDX-FileCopyrightText = "2025 lincot"
 SPDX-License-Identifier = "MPL-2.0"
 
 [[annotations]]
+path = ["smt-circom/***"]
+SPDX-FileCopyrightText = "2025 lincot"
+SPDX-License-Identifier = "MIT OR Apache-2.0"
+
+[[annotations]]
 path = ["frontend/public/icons/github-mark.svg", "frontend/public/icons/github-mark-white.svg"]
 SPDX-FileCopyrightText = "GitHub, Inc."
 SPDX-License-Identifier = "LicenseRef-GitHub-Logo-Policy"

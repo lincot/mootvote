@@ -7,6 +7,7 @@ mod mem;
 #[cfg(feature = "rocksdb")]
 mod rocksdb;
 
+/// A store for SMT nodes.
 pub trait NodeStore {
     type Error: core::fmt::Debug;
 

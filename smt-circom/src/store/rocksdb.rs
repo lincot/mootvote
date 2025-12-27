@@ -4,6 +4,10 @@ use std::cell::RefCell;
 use super::NodeStore;
 use crate::Node;
 
+/// A store for SMT nodes, persisted in RocksDB.
+///
+/// Node writes are staged in the shared batch. Callers should eventually flush
+/// the `WriteBatch`.
 pub struct RocksStore<'a, P: AsRef<[u8]>> {
     db: &'a DB,
     cf: &'a ColumnFamily,
@@ -13,6 +17,7 @@ pub struct RocksStore<'a, P: AsRef<[u8]>> {
 }
 
 impl<'a, P: AsRef<[u8]>> RocksStore<'a, P> {
+    /// Constructs a new `RocksStore`.
     pub fn new(
         db: &'a DB,
         cf: &'a ColumnFamily,

@@ -1,0 +1,11 @@
+{
+  "name": "js-merkletree-bench",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@iden3/js-merkletree": "^1.5.0"
+  },
+  "scripts": {
+    "benchJsMerkletree": "ts-node js-bench/benchJsMerkletree.ts"
+  }
+}

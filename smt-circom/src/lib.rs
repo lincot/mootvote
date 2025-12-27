@@ -1,3 +1,10 @@
+//! Sparse Merkle Tree, compatible with circom proofs.
+//!
+//! This crate implements a Poseidon-based Sparse Merkle Tree suitable for
+//! generating witnesses/proofs for circom circuits. Nodes are persisted via a
+//! pluggable [`NodeStore`] and keyed/hashed as 32-byte big-endian field
+//! elements over BN254.
+
 use ark_bn254::Fr;
 use core::array;
 use light_poseidon::{Poseidon, PoseidonBytesHasher};
@@ -24,6 +31,18 @@ fn mid_key(l: [u8; 32], r: [u8; 32]) -> [u8; 32] {
     poseidon_hash(&[&l, &r])
 }
 
+/// Errors returned by SMT operations.
+#[derive(Debug, thiserror::Error)]
+pub enum Error<E> {
+    #[error("The key is already present")]
+    AlreadyPresent,
+    #[error("Key wasn't found")]
+    KeyNotFound,
+    #[error("Store error: {0}")]
+    Store(E),
+}
+
+/// A Sparse Merkle Tree node.
 #[derive(Clone, Copy, Debug)]
 pub enum Node {
     Middle { l: [u8; 32], r: [u8; 32] },
@@ -31,6 +50,10 @@ pub enum Node {
 }
 
 impl Node {
+    /// Encode a node to a compact 65-byte form:
+    ///
+    /// - byte 0: `0` for `Middle`, `1` for `Leaf`
+    /// - bytes 1..33, 33..65: two 32-byte fields (`l|r` or `k|v`)
     pub fn encode(&self) -> [u8; 65] {
         let mut out = [0u8; 65];
         match self {
@@ -48,6 +71,10 @@ impl Node {
         out
     }
 
+    /// Decode a node from its 65-byte encoding.
+    ///
+    /// Returns `None` if the buffer is not exactly 65 bytes or the tag is
+    /// invalid.
     pub fn decode(bs: &[u8]) -> Option<Self> {
         if bs.len() != 65 {
             return None;
@@ -80,6 +107,7 @@ fn get_path<const D: usize>(key: &[u8; 32]) -> [bool; D] {
     })
 }
 
+/// Proof object tailored for circom circuits.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CircomProof<const D: usize> {
     pub siblings: [[u8; 32]; D],
@@ -89,32 +117,28 @@ pub struct CircomProof<const D: usize> {
     pub membership: bool,
 }
 
+impl<const D: usize> CircomProof<D> {
+    /// Retrieve the leaf value if the proof key is present.
+    pub fn get_leaf(&self) -> Option<&[u8; 32]> {
+        if self.membership {
+            Some(&self.old_value)
+        } else {
+            None
+        }
+    }
+}
+
 pub struct SparseMerkleTree<const D: usize, S: NodeStore> {
     store: S,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error<E> {
-    #[error("The key is already present")]
-    AlreadyPresent,
-    #[error("Key wasn't found")]
-    KeyNotFound,
-    #[error("Store error: {0}")]
-    Store(E),
-}
-
-pub struct LookupResult<const D: usize> {
-    pub key: [u8; 32],
-    pub value: [u8; 32],
-    pub siblings: [[u8; 32]; D],
-    pub membership: bool,
-}
-
 impl<const D: usize, S: NodeStore> SparseMerkleTree<D, S> {
+    /// Construct a new tree from a store.
     pub fn new(store: S) -> Result<Self, S::Error> {
         Ok(Self { store })
     }
 
+    /// Get the current root.
     pub fn root(&self) -> Result<[u8; 32], S::Error> {
         self.store.get_root()
     }
@@ -127,57 +151,6 @@ impl<const D: usize, S: NodeStore> SparseMerkleTree<D, S> {
 
     fn set_root(&mut self, root: [u8; 32]) -> Result<(), S::Error> {
         self.store.set_root(root)
-    }
-
-    pub fn lookup(&self, key: [u8; 32]) -> Result<LookupResult<D>, S::Error> {
-        let k = key;
-        let mut siblings = [[0; 32]; D];
-        let mut sibling_i = 0;
-        let mut cur = self.root()?;
-
-        for (i, go_right) in get_path::<D>(&k).into_iter().enumerate() {
-            match self.store.get(cur).expect("node exists") {
-                None => {
-                    return Ok(LookupResult {
-                        key: [0; 32],
-                        value: [0; 32],
-                        siblings,
-                        membership: false,
-                    });
-                }
-                Some(Node::Leaf {
-                    k: leaf_k,
-                    v: leaf_v,
-                }) => {
-                    let exists = leaf_k == k;
-                    return Ok(LookupResult {
-                        key: leaf_k,
-                        value: leaf_v,
-                        siblings,
-                        membership: exists,
-                    });
-                }
-                Some(Node::Middle { l, r }) => {
-                    if go_right {
-                        siblings[sibling_i] = l;
-                        cur = r;
-                    } else {
-                        siblings[sibling_i] = r;
-                        cur = l;
-                    }
-                    sibling_i += 1;
-                }
-            }
-            if i == D - 1 {
-                return Ok(LookupResult {
-                    key: [0; 32],
-                    value: [0; 32],
-                    siblings,
-                    membership: false,
-                });
-            }
-        }
-        unreachable!();
     }
 
     fn add_leaf(
@@ -269,6 +242,7 @@ impl<const D: usize, S: NodeStore> SparseMerkleTree<D, S> {
         self.put(&mid)
     }
 
+    /// Insert a new leaf.
     pub fn add(&mut self, key: [u8; 32], val: [u8; 32]) -> Result<(), Error<S::Error>> {
         let kh = key;
         let vh = val;
@@ -280,6 +254,7 @@ impl<const D: usize, S: NodeStore> SparseMerkleTree<D, S> {
         Ok(())
     }
 
+    /// Update an existing leaf's value, returning the previous value.
     pub fn update(&mut self, key: [u8; 32], val: [u8; 32]) -> Result<[u8; 32], Error<S::Error>> {
         let kh = key;
         let vh = val;
@@ -326,34 +301,61 @@ impl<const D: usize, S: NodeStore> SparseMerkleTree<D, S> {
         Err(Error::KeyNotFound)
     }
 
-    pub fn get_leaf(&self, key: [u8; 32]) -> Result<Option<[u8; 32]>, S::Error> {
-        let res = self.lookup(key)?;
-        if res.membership {
-            Ok(Some(res.value))
-        } else {
-            Ok(None)
-        }
-    }
-
+    /// Build a circom-compatible proof for `key` inclusion or non-inclusion.
     pub fn get_proof(&self, key: [u8; 32]) -> Result<CircomProof<D>, S::Error> {
-        let LookupResult {
-            key: found_k,
-            value: found_v,
-            siblings,
-            membership,
-        } = self.lookup(key)?;
+        let k = key;
+        let mut siblings = [[0; 32]; D];
+        let mut sibling_i = 0;
+        let mut cur = self.root()?;
 
-        let is_old0 = found_v == [0u8; 32];
-
-        Ok(CircomProof {
-            siblings,
-            is_old0,
-            old_key: if is_old0 { [0u8; 32] } else { found_k },
-            old_value: if is_old0 { [0u8; 32] } else { found_v },
-            membership,
-        })
+        for (i, go_right) in get_path::<D>(&k).into_iter().enumerate() {
+            match self.store.get(cur).expect("node exists") {
+                None => {
+                    return Ok(CircomProof {
+                        old_key: [0; 32],
+                        old_value: [0; 32],
+                        is_old0: true,
+                        siblings,
+                        membership: false,
+                    });
+                }
+                Some(Node::Leaf {
+                    k: leaf_k,
+                    v: leaf_v,
+                }) => {
+                    return Ok(CircomProof {
+                        old_key: leaf_k,
+                        old_value: leaf_v,
+                        is_old0: leaf_k == [0; 32],
+                        siblings,
+                        membership: leaf_k == k,
+                    });
+                }
+                Some(Node::Middle { l, r }) => {
+                    if go_right {
+                        siblings[sibling_i] = l;
+                        cur = r;
+                    } else {
+                        siblings[sibling_i] = r;
+                        cur = l;
+                    }
+                    sibling_i += 1;
+                }
+            }
+            if i == D - 1 {
+                return Ok(CircomProof {
+                    old_key: [0; 32],
+                    old_value: [0; 32],
+                    is_old0: true,
+                    siblings,
+                    membership: false,
+                });
+            }
+        }
+        unreachable!();
     }
 
+    /// Insert or update (insert if missing, otherwise replace the value).
     pub fn add_or_update(&mut self, key: [u8; 32], val: [u8; 32]) -> Result<(), Error<S::Error>> {
         match self.add(key, val) {
             Err(Error::AlreadyPresent) => self.update(key, val).map(|_| ()),
@@ -382,9 +384,10 @@ mod tests {
             16, 232, 248, 117, 61, 208, 169, 22, 163, 170, 44, 57, 210, 21, 42, 219, 91, 147, 79,
             94, 181, 31, 210, 205, 159, 82, 222, 81, 110, 255, 37, 198,
         ];
-
         let p1 = t.get_proof(k1).unwrap();
+        assert!(p1.get_leaf().is_none());
         t.add_or_update(k1, v1).unwrap();
+        assert_eq!(t.get_proof(k1).unwrap().get_leaf(), Some(&v1));
         assert!(!p1.membership);
         assert!(p1.is_old0);
         assert_eq!(p1.old_key, [0; 32]);
@@ -408,7 +411,9 @@ mod tests {
             231, 61, 78, 108, 10, 70, 133, 200, 198, 187, 100, 85, 178,
         ];
         let p2 = t.get_proof(k2).unwrap();
+        assert!(p2.get_leaf().is_none());
         t.add_or_update(k2, v2).unwrap();
+        assert_eq!(t.get_proof(k2).unwrap().get_leaf(), Some(&v2));
         assert!(!p2.membership);
         assert!(!p2.is_old0);
         assert_eq!(p2.old_key, k1);
@@ -425,7 +430,9 @@ mod tests {
             232, 218, 170, 173, 245, 178, 128, 151, 223, 2, 64, 114, 19,
         ];
         let p3 = t.get_proof(k3).unwrap();
+        assert!(p3.get_leaf().is_none());
         t.add_or_update(k3, v3).unwrap();
+        assert_eq!(t.get_proof(k3).unwrap().get_leaf(), Some(&v3));
         assert!(!p3.membership);
         assert!(!p3.is_old0);
         assert_eq!(p3.old_key, k2);
@@ -440,6 +447,7 @@ mod tests {
         ];
         let p4 = t.get_proof(k3).unwrap();
         t.add_or_update(k3, v4).unwrap();
+        assert_eq!(t.get_proof(k3).unwrap().get_leaf(), Some(&v4));
         assert!(p4.membership);
         assert!(!p4.is_old0);
         assert_eq!(p4.old_key, k3);
@@ -454,5 +462,13 @@ mod tests {
             ],
         );
         assert!(p4.siblings[2..].iter().all(|&b| b == [0; 32]));
+
+        assert!(t.get_proof([0; 32]).unwrap().get_leaf().is_none());
+        t.add([0; 32], [0; 32]).unwrap();
+        assert_eq!(t.get_proof([0; 32]).unwrap().get_leaf(), Some(&[0; 32]));
+
+        assert!(t.get_proof([1; 32]).unwrap().get_leaf().is_none());
+        t.add([1; 32], [1; 32]).unwrap();
+        assert_eq!(t.get_proof([1; 32]).unwrap().get_leaf(), Some(&[1; 32]));
     }
 }

@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use super::NodeStore;
 use crate::Node;
 
+/// An in-memory store for SMT nodes.
 #[derive(Clone, Default)]
 pub struct MemStore {
     map: HashMap<[u8; 32], [u8; 65]>,
@@ -11,6 +12,7 @@ pub struct MemStore {
 }
 
 impl MemStore {
+    /// Constructs a new, empty `MemStore`.
     pub fn new() -> Self {
         Self::default()
     }
