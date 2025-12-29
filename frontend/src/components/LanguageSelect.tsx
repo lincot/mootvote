@@ -18,12 +18,12 @@ export default function LanguageSelect(
       <Select.Trigger
         aria-label={t("language")}
         className={[
-          "inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg",
+          className,
+          "items-center gap-2 px-3 py-1.5 text-sm rounded-lg",
           "border border-zinc-300",
           "dark:border-neutral-700",
           "hover:bg-neutral-100 dark:hover:bg-neutral-800",
           "focus:outline-none focus:ring-2 focus:ring-zinc-400/40 dark:focus:ring-zinc-500/30",
-          className,
         ].join(" ")}
       >
         <Select.Value aria-hidden>{short}</Select.Value>

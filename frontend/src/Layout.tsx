@@ -3,10 +3,12 @@ import { Link, NavLink, Outlet } from "react-router";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import "./index.css";
-import { CLUSTER, GITHUB_URL, OTHER_CLUSTER_URL } from "./env.tsx";
+import { GITHUB_URL } from "./env.tsx";
 import { ThemeToggle } from "./components/ThemeToggle.tsx";
 import { ZkAccountsButton } from "./components/ZkAccountsButton.tsx";
 import LanguageSelect from "./components/LanguageSelect.tsx";
+import MobileWalletButton from "./components/MobileWalletButton.tsx";
+import ClusterInfo from "./components/ClusterInfo.tsx";
 import { useTranslation } from "react-i18next";
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
@@ -46,7 +48,7 @@ export const Layout: React.FC<
         ref={headerRef}
         className="sticky top-0 z-40 border-b border-gray-200/60 dark:border-zinc-800/60 bg-white/70 dark:bg-zinc-800/70 backdrop-blur"
       >
-        <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-3">
+        <div className="mx-auto max-w-7xl px-4 py-2 sm:py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
               className="md:hidden rounded-lg border px-2 py-1 text-sm"
@@ -63,30 +65,17 @@ export const Layout: React.FC<
                 MootVote
               </Link>
             </h1>
-            {CLUSTER === "devnet" && (
-              <span
-                className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
-                title={t("devnet_info")}
-              >
-                DEVNET
-              </span>
-            )}
-            {OTHER_CLUSTER_URL && (
-              <a
-                href={OTHER_CLUSTER_URL}
-                className="text-xs underline opacity-80 hover:opacity-100"
-                target="_self"
-              >
-                {CLUSTER === "devnet" ? "Go to mainnet" : "Go to devnet"}
-              </a>
-            )}
+            <ClusterInfo className="hidden sm:inline-flex" />
           </div>
 
           <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <LanguageSelect />
+            <ThemeToggle className="hidden sm:inline-flex" />
+            <LanguageSelect className="hidden sm:inline-flex" />
             <ZkAccountsButton onClick={() => setShowAccounts(true)} />
-            <WalletMultiButton />
+            <MobileWalletButton />
+            <div className="hidden sm:inline-flex">
+              <WalletMultiButton />
+            </div>
           </div>
         </div>
       </header>
@@ -148,6 +137,13 @@ export const Layout: React.FC<
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex h-full flex-col">
+                <div className="mb-3 flex items-center justify-between">
+                  <ClusterInfo />
+                  <div className="flex items-center gap-2">
+                    <ThemeToggle />
+                    <LanguageSelect />
+                  </div>
+                </div>
                 <nav className="space-y-1">
                   <NavLink
                     to="/polls"

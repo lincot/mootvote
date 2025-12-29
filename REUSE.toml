@@ -14,3 +14,8 @@ SPDX-License-Identifier = "MIT OR Apache-2.0"
 path = ["frontend/public/icons/github-mark.svg", "frontend/public/icons/github-mark-white.svg"]
 SPDX-FileCopyrightText = "GitHub, Inc."
 SPDX-License-Identifier = "LicenseRef-GitHub-Logo-Policy"
+
+[[annotations]]
+path = ["frontend/public/icons/solana-*"]
+SPDX-FileCopyrightText = "Solana Foundation"
+SPDX-License-Identifier = "LicenseRef-Solana-Trademark"

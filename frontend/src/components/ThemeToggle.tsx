@@ -17,13 +17,16 @@ function useTheme() {
   return { theme, setTheme };
 }
 
-export const ThemeToggle: React.FC = () => {
+export const ThemeToggle: React.FC<{ className?: string }> = (
+  { className = "" },
+) => {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
   return (
     <button
       type="button"
-      className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+      className={"rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 " +
+        className}
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       title={t("toggle_theme")}
     >
