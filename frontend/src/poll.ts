@@ -1,7 +1,7 @@
 export type PollDetail = {
   poll_id: string;
   census_root: string;
-  coordinator_key: [string, string];
+  tallier_key: [string, string];
   voting_start_time: number;
   voting_end_time: number;
   fee: string;

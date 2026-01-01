@@ -27,7 +27,7 @@ template Tally(DEPTH, MAX_CHOICES, MAX_BATCH) {
     signal input tallyOld[MAX_CHOICES];
     signal input tallySaltOld;
     signal input tallySaltNew; // should be different for the last batch
-    signal input coordinatorSk; // Coordinator secret scalar
+    signal input tallierSk; // Tallier secret scalar
 
     signal input ephPk[MAX_BATCH][2];
     signal input nonce[MAX_BATCH];
@@ -99,7 +99,7 @@ template Tally(DEPTH, MAX_CHOICES, MAX_BATCH) {
         cumulativeMsgHashNext[i] <== PoseidonHasher(2)([cumulativeMsgHashAcc[i], msgHasher[i].out]);
 
         dec[i] = PoseidonDecrypt(LIMBS);
-        dec[i].key <== Ecdh()(coordinatorSk, ephPk[i]);
+        dec[i].key <== Ecdh()(tallierSk, ephPk[i]);
         dec[i].nonce <== nonce[i];
         dec[i].ciphertext <== ciphertext[i];
         nu[i] <== dec[i].decrypted[0];

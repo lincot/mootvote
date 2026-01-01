@@ -3,7 +3,7 @@
     "file": "Vote",
     "template": "Vote",
     "params": [40],
-    "pubs": ["censusRoot", "pollId", "nChoices", "coordinatorPk", "relayerId"]
+    "pubs": ["censusRoot", "pollId", "nChoices", "tallierPk", "relayerId"]
   },
   "Tally": {
     "file": "Tally",

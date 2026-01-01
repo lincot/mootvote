@@ -99,8 +99,8 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const newSec: bigint = newRec.sk;
 
       const PK: [bigint, bigint] = [
-        BigInt("0x" + poll.coordinator_key[0]),
-        BigInt("0x" + poll.coordinator_key[1]),
+        BigInt("0x" + poll.tallier_key[0]),
+        BigInt("0x" + poll.tallier_key[1]),
       ];
 
       const nChoices = BigInt(choices.length);
@@ -172,9 +172,9 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const revotingKeyOld = oldSec;
       const revotingKeyNew = newSec;
 
-      const nuCoordinator = F.toObject(poseidon([sigHash]));
+      const nuTallier = F.toObject(poseidon([sigHash]));
       const P = [
-        nuCoordinator,
+        nuTallier,
         choice,
         F.toObject(poseidon([revotingKeyOld])),
         F.toObject(poseidon([revotingKeyNew])),
@@ -186,7 +186,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       })();
       const ciphertext = poseidonEncrypt(P, sharedKey, nonce);
 
-      const coordinatorPk = PK;
+      const tallierPk = PK;
 
       let relayerId = 0n;
       let relayerNu;
@@ -216,7 +216,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         pathPos,
         choice,
         ephSk,
-        coordinatorPk,
+        tallierPk,
         relayerId,
         nonce,
         ciphertext,

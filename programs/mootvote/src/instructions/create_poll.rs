@@ -47,7 +47,7 @@ pub fn create_poll(
     n_choices: u8,
     description_url: String,
     census_url: String,
-    coordinator_key: Point,
+    tallier_key: Point,
     census_root: [u8; 32],
     voting_start_time: u64,
     voting_end_time: u64,
@@ -74,7 +74,7 @@ pub fn create_poll(
 
     poll.id = id;
     poll.n_choices = n_choices;
-    poll.coordinator_key = coordinator_key;
+    poll.tallier_key = tallier_key;
     poll.census_root = census_root;
     poll.voting_start_time = voting_start_time;
     poll.voting_end_time = voting_end_time;
@@ -111,7 +111,7 @@ pub fn create_poll(
     emit!(CreatePollEvent {
         poll_id: poll.id,
         n_choices,
-        coordinator_key,
+        tallier_key,
         census_root,
         voting_start_time,
         voting_end_time,

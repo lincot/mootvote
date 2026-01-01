@@ -73,7 +73,7 @@ export type CreatePollParams = {
   nChoices: number;
   descriptionUrl: string;
   censusUrl: string;
-  coordinatorKey: Point;
+  tallierKey: Point;
   censusRoot: number[];
   votingStartTime: BN | bigint;
   votingEndTime: BN | bigint;
@@ -88,7 +88,7 @@ export async function createPoll({
   nChoices,
   descriptionUrl,
   censusUrl,
-  coordinatorKey,
+  tallierKey,
   censusRoot,
   votingStartTime,
   votingEndTime,
@@ -102,7 +102,7 @@ export async function createPoll({
       nChoices,
       descriptionUrl,
       censusUrl,
-      coordinatorKey,
+      tallierKey,
       censusRoot,
       toBN(votingStartTime),
       toBN(votingEndTime),

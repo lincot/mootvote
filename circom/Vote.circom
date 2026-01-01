@@ -18,7 +18,7 @@ template Vote(DEPTH) {
     signal input censusRoot;
     signal input pollId;
     signal input nChoices;
-    signal input coordinatorPk[2];
+    signal input tallierPk[2];
     signal input relayerId;
     signal output msgHash;
     signal output relayerNuHash;
@@ -80,7 +80,7 @@ template Vote(DEPTH) {
 
     signal ephSkBits[253] <== Num2Bits(253)(ephSk);
     signal ephPk[2] <== EscalarMulFix(253, [BASE_X, BASE_Y])(ephSkBits);
-    signal sharedKey[2] <== EscalarMulAny(253)(ephSkBits, coordinatorPk);
+    signal sharedKey[2] <== EscalarMulAny(253)(ephSkBits, tallierPk);
 
     signal plaintext[LIMBS];
     plaintext[0] <== nu;

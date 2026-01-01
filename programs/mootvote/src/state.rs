@@ -16,7 +16,7 @@ pub struct PlatformConfig {
 pub struct Poll {
     pub id: u64,
     pub n_choices: u8,
-    pub coordinator_key: Point,
+    pub tallier_key: Point,
     pub census_root: [u8; 32],
     pub cumulative_msg_hash: [u8; 32],
     pub voting_start_time: u64,

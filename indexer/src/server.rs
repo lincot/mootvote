@@ -47,7 +47,7 @@ struct PollOut {
     title: String,
     choices: Vec<String>,
     census_root: String,
-    coordinator_key: (String, String),
+    tallier_key: (String, String),
     voting_start_time: u64,
     voting_end_time: u64,
     #[serde_as(as = "DisplayFromStr")]
@@ -68,7 +68,7 @@ async fn get_poll(
     let poll_id = path.into_inner();
     let rec = sqlx::query!(
         r#"
-        SELECT poll_id, title, choices, census_root, coord_x, coord_y,
+        SELECT poll_id, title, choices, census_root, tallier_x, tallier_y,
                voting_start_time, voting_end_time, fee, platform_fee,
                fee_destination, description_url, census_url, tally
         FROM polls WHERE poll_id = $1 AND title IS NOT NULL AND census_valid IS TRUE
@@ -89,7 +89,7 @@ async fn get_poll(
                 .choices
                 .expect("choices are expected to be set atomically with title"),
             census_root: hex::encode(&p.census_root),
-            coordinator_key: (hex::encode(&p.coord_x), hex::encode(&p.coord_y)),
+            tallier_key: (hex::encode(&p.tallier_x), hex::encode(&p.tallier_y)),
             voting_start_time: p.voting_start_time as u64,
             voting_end_time: p.voting_end_time as u64,
             fee: p.fee as u64,
@@ -212,7 +212,7 @@ struct UserPollsQuery {
     #[serde_as(as = "Option<Hex>")]
     voter_leaf: Option<[u8; 32]>,
     #[serde_as(as = "Option<Hex>")]
-    coordinator: Option<[u8; 64]>,
+    tallier: Option<[u8; 64]>,
     status: Option<PollStatus>,
     limit: Option<i64>,
     before: Option<i64>,
@@ -226,13 +226,13 @@ async fn list_polls(
     let limit = q.limit.unwrap_or(50).clamp(1, 500);
     let before = q.before.unwrap_or(i64::MAX);
 
-    if q.coordinator.is_none() && q.voter_leaf.is_none() {
+    if q.tallier.is_none() && q.voter_leaf.is_none() {
         return Err(actix_web::error::ErrorBadRequest(
-            "provide coordinator and/or voter_leaf",
+            "provide tallier and/or voter_leaf",
         ));
     }
 
-    let (coord_present, coord_x, coord_y) = if let Some(c) = &q.coordinator {
+    let (tallier_present, tallier_x, tallier_y) = if let Some(c) = &q.tallier {
         (true, &c[..32], &c[32..])
     } else {
         (false, &[0u8; 32][..], &[0u8; 32][..])
@@ -273,7 +273,7 @@ async fn list_polls(
           AND p.title IS NOT NULL
           AND p.id < $10
           AND (
-                ($1 AND p.coord_x = $2 AND p.coord_y = $3)
+                ($1 AND p.tallier_x = $2 AND p.tallier_y = $3)
                 OR
                 ($4 AND EXISTS (
                      SELECT 1 FROM voter_polls vp
@@ -287,9 +287,9 @@ async fn list_polls(
         ORDER BY p.id DESC
         LIMIT $11
         "#,
-        coord_present,
-        coord_x,
-        coord_y,
+        tallier_present,
+        tallier_x,
+        tallier_y,
         voter_present,
         voter_leaf_bytes,
         now as i64,

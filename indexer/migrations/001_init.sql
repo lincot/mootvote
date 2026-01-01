@@ -5,8 +5,8 @@ CREATE TABLE polls (
   choices                    VARCHAR(100)[],
   expected_n_choices         SMALLINT NOT NULL,
   census_root                BYTEA NOT NULL,  -- 32
-  coord_x                    BYTEA NOT NULL,  -- 32
-  coord_y                    BYTEA NOT NULL,  -- 32
+  tallier_x                  BYTEA NOT NULL,  -- 32
+  tallier_y                  BYTEA NOT NULL,  -- 32
   voting_start_time          BIGINT NOT NULL, -- u64
   voting_end_time            BIGINT NOT NULL, -- u64
   fee                        BIGINT NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE voter_polls (
 );
 
 CREATE INDEX voter_polls_key_hash_idx ON voter_polls (key_hash);
-CREATE INDEX polls_coord_idx ON polls (coord_x, coord_y);
+CREATE INDEX polls_tallier_idx ON polls (tallier_x, tallier_y);
 
 CREATE TABLE cursors (
   stream TEXT PRIMARY KEY,

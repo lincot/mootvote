@@ -42,9 +42,9 @@ const schemaBase = z.object({
       MAX_CHOICES,
       `Max ${MAX_CHOICES} choices`,
     ),
-  coordMode: z.enum(["active", "manual"]),
-  coordX: z.string().optional(),
-  coordY: z.string().optional(),
+  tallierMode: z.enum(["active", "manual"]),
+  tallierX: z.string().optional(),
+  tallierY: z.string().optional(),
   start: z.string().min(1, "Start required"),
   end: z.string().min(1, "End required"),
   feeLamports: z.string().regex(/^\d+$/, "Integer lamports"),
@@ -78,14 +78,14 @@ const schemaBase = z.object({
   }
 });
 
-const schema = z.discriminatedUnion("coordMode", [
+const schema = z.discriminatedUnion("tallierMode", [
   schemaBase.safeExtend({
-    coordMode: z.literal("active"),
+    tallierMode: z.literal("active"),
   }),
   schemaBase.safeExtend({
-    coordMode: z.literal("manual"),
-    coordX: z.string().regex(HEX, "32-byte hex"),
-    coordY: z.string().regex(HEX, "32-byte hex"),
+    tallierMode: z.literal("manual"),
+    tallierX: z.string().regex(HEX, "32-byte hex"),
+    tallierY: z.string().regex(HEX, "32-byte hex"),
   }),
 ]);
 
@@ -163,9 +163,9 @@ export const PollCreatePage: React.FC<{}> = () => {
     defaultValues: {
       title: "",
       choices: [{ value: "" }, { value: "" }],
-      coordMode: "active",
-      coordX: undefined,
-      coordY: undefined,
+      tallierMode: "active",
+      tallierX: undefined,
+      tallierY: undefined,
       start: toLocalInputValue(new Date(Date.now() + 60_000)),
       end: toLocalInputValue(new Date(Date.now() + 3_660_000)),
       feeLamports: "0",
@@ -175,7 +175,7 @@ export const PollCreatePage: React.FC<{}> = () => {
       censusSource: "existing",
     },
   });
-  const coordMode = watch("coordMode");
+  const tallierMode = watch("tallierMode");
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -226,19 +226,19 @@ export const PollCreatePage: React.FC<{}> = () => {
       const end = localInputToUnixSeconds(data.end);
       const fee = BigInt(data.feeLamports);
 
-      let coordinatorKey: { x: number[]; y: number[] };
-      if (data.coordMode === "active") {
+      let tallierKey: { x: number[]; y: number[] };
+      if (data.tallierMode === "active") {
         const acc = KR.accounts[KR.active];
         if (!acc) throw new Error("No active ZK account selected");
         const [px, py] = acc.pub;
-        coordinatorKey = {
+        tallierKey = {
           x: toBytesBE32(px),
           y: toBytesBE32(py),
         };
       } else {
-        coordinatorKey = {
-          x: Array.from(hexToBytes32(data.coordX!)),
-          y: Array.from(hexToBytes32(data.coordY!)),
+        tallierKey = {
+          x: Array.from(hexToBytes32(data.tallierX!)),
+          y: Array.from(hexToBytes32(data.tallierY!)),
         };
       }
 
@@ -246,7 +246,7 @@ export const PollCreatePage: React.FC<{}> = () => {
         payer: wallet.publicKey!,
         id: randomScalar(1n << 32n),
         censusRoot: Array.from(hexToBytes32(data.censusRootHex)),
-        coordinatorKey,
+        tallierKey,
         nChoices: cleanedChoices.length,
         votingStartTime: new anchor.BN(start),
         votingEndTime: new anchor.BN(end),
@@ -318,10 +318,10 @@ export const PollCreatePage: React.FC<{}> = () => {
     isSubmitting,
     !isValid,
     !wallet.publicKey,
-    coordMode === "active" && !KR.accounts[KR.active],
+    tallierMode === "active" && !KR.accounts[KR.active],
   );
   const disabled = isSubmitting || !isValid || !wallet.publicKey ||
-    (coordMode === "active" && !KR.accounts[KR.active]);
+    (tallierMode === "active" && !KR.accounts[KR.active]);
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
@@ -374,37 +374,41 @@ export const PollCreatePage: React.FC<{}> = () => {
                 <input
                   type="radio"
                   value="active"
-                  {...register("coordMode")}
+                  {...register("tallierMode")}
                   defaultChecked
                 />
                 {t("poll_creation.use_keyring")}
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input type="radio" value="manual" {...register("coordMode")} />
+                <input
+                  type="radio"
+                  value="manual"
+                  {...register("tallierMode")}
+                />
                 {t("poll_creation.enter_manually")}
               </label>
             </div>
             {}
-            {coordMode !== "manual" ? <ActiveCoordinatorSummary /> : (
+            {tallierMode !== "manual" ? <ActiveTallierSummary /> : (
               <div>
                 <input
                   placeholder="0x… (X)"
                   className={INPUT_CN}
-                  {...register("coordX")}
+                  {...register("tallierX")}
                 />
-                {errors.coordX && (
+                {errors.tallierX && (
                   <p className="text-red-600 text-xs">
-                    {errors.coordX.message}
+                    {errors.tallierX.message}
                   </p>
                 )}
                 <input
                   placeholder="0x… (Y)"
                   className={INPUT_CN}
-                  {...register("coordY")}
+                  {...register("tallierY")}
                 />
-                {errors.coordY && (
+                {errors.tallierY && (
                   <p className="text-red-600 text-xs">
-                    {errors.coordY.message}
+                    {errors.tallierY.message}
                   </p>
                 )}
               </div>
@@ -625,7 +629,7 @@ export const PollCreatePage: React.FC<{}> = () => {
   );
 };
 
-const ActiveCoordinatorSummary: React.FC = () => {
+const ActiveTallierSummary: React.FC = () => {
   const { t } = useTranslation();
   const KR = useKeyringCtx();
   const acc = KR.accounts[KR.active];

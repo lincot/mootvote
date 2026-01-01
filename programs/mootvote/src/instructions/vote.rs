@@ -150,8 +150,8 @@ fn vote_common(
         poll.census_root,
         u64_to_u256_be(poll.id),
         u8_to_u256_be(poll.n_choices),
-        poll.coordinator_key.x,
-        poll.coordinator_key.y,
+        poll.tallier_key.x,
+        poll.tallier_key.y,
         relayer_id,
     ];
     let mut v = Groth16Verifier::<8>::new(&proof.a, &proof.b, &proof.c, &public_inputs, &VK_VOTE)

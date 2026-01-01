@@ -1,5 +1,5 @@
-use mootvote::events::{CreatePollEvent, FinishTallyEvent, VoteEvent};
 use core::mem::transmute;
+use mootvote::events::{CreatePollEvent, FinishTallyEvent, VoteEvent};
 use sqlx::{postgres::PgQueryResult, PgPool, Postgres, Transaction};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::info;
@@ -117,7 +117,7 @@ impl DbManager {
         let res = sqlx::query!(
             r#"
         INSERT INTO polls (
-          poll_id, expected_n_choices, census_root, coord_x, coord_y,
+          poll_id, expected_n_choices, census_root, tallier_x, tallier_y,
           voting_start_time, voting_end_time, fee, platform_fee, expected_n_voters,
           fee_destination, description_url, census_url
         )
@@ -127,8 +127,8 @@ impl DbManager {
             e.poll_id as i64,
             e.n_choices as i16,
             &e.census_root,
-            &e.coordinator_key.x,
-            &e.coordinator_key.y,
+            &e.tallier_key.x,
+            &e.tallier_key.y,
             e.voting_start_time as i64,
             e.voting_end_time as i64,
             e.fee as i64,

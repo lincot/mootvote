@@ -168,7 +168,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       }
       const rootOld = (await mt.root()).bigInt();
 
-      const coordinatorSk = keypair.sk;
+      const tallierSk = keypair.sk;
       let H = store ? BigInt("0x" + store.runningMsgHashHex) : 0n;
       const tallyCounts = store
         ? store.tallyCounts.map((x) => BigInt(x))
@@ -204,7 +204,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           for (let j = 0; j < 32; j++) x = (x << 8n) | BigInt(buf[i + j]);
           ctWords.push(x);
         }
-        const shared = mulPointEscalar(R, coordinatorSk);
+        const shared = mulPointEscalar(R, tallierSk);
         const plain = poseidonDecrypt(ctWords, shared, nonce, LIMBS);
         const [
           nu,
@@ -305,7 +305,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         tallySaltNew,
         tallyOld,
         batchLen: BigInt(batch.length),
-        coordinatorSk,
+        tallierSk,
         ephPk,
         nonce: nonces,
         ciphertext,

@@ -228,7 +228,7 @@ describe("MootVote", () => {
   const tempAdmin = new Keypair();
 
   const pollId = 5n;
-  let coordinatorSk: bigint;
+  let tallierSk: bigint;
   let PKx: Uint8Array;
   let PKy: Uint8Array;
   const nChoices = 6;
@@ -276,10 +276,10 @@ describe("MootVote", () => {
 
   test("createPoll", async () => {
     const { sk: sk_, pub } = genBabyJubKeypair(babyjub, eddsa);
-    coordinatorSk = sk_;
+    tallierSk = sk_;
     PKx = pub[0];
     PKy = pub[1];
-    const coordinatorKey = {
+    const tallierKey = {
       x: toBytesBE32(F.toObject(PKx)),
       y: toBytesBE32(F.toObject(PKy)),
     };
@@ -295,7 +295,7 @@ describe("MootVote", () => {
         payer: payer.publicKey,
         id: pollId,
         censusRoot: toBytesBE32(censusRoot),
-        coordinatorKey,
+        tallierKey,
         nChoices,
         votingStartTime,
         votingEndTime,
@@ -311,7 +311,7 @@ describe("MootVote", () => {
     if (!poll) throw new Error("Poll not initialized");
     expect(toBigint(poll.id)).to.equal(pollId);
     expect(poll.nChoices).to.equal(nChoices);
-    expect(poll.coordinatorKey).to.deep.equal(coordinatorKey);
+    expect(poll.tallierKey).to.deep.equal(tallierKey);
     expect(poll.censusRoot).to.deep.equal(toBytesBE32(censusRoot));
     expect(poll.cumulativeMsgHash).to.deep.equal(
       Array.from({ length: 32 }, () => 0),
@@ -389,9 +389,9 @@ describe("MootVote", () => {
         ? prvRevoting
         : 42n;
 
-      const nuCoordinator = F.toObject(poseidon([sigHash]));
+      const nuTallier = F.toObject(poseidon([sigHash]));
       const plaintext = [
-        nuCoordinator,
+        nuTallier,
         choice,
         F.toObject(poseidon([revotingKeyOld])),
         F.toObject(poseidon([revotingKeyNew])),
@@ -416,7 +416,7 @@ describe("MootVote", () => {
         relayerNu = F.toObject(poseidon([sigHash, relayerId]));
       }
 
-      const coordinatorPk = [F.toObject(PKx), F.toObject(PKy)];
+      const tallierPk = [F.toObject(PKx), F.toObject(PKy)];
       const { path, pathPos } = await getMerkleProof(
         CENSUS_DEPTH,
         census,
@@ -437,7 +437,7 @@ describe("MootVote", () => {
         pathPos,
         choice,
         ephSk,
-        coordinatorPk,
+        tallierPk,
         relayerId,
         nonce,
         ciphertext,
@@ -475,7 +475,7 @@ describe("MootVote", () => {
       if (N_choices_pub !== BigInt(nChoices)) {
         throw new Error("N_choices mismatch");
       }
-      if (PK_pub[0] != coordinatorPk[0] || PK_pub[1] != coordinatorPk[1]) {
+      if (PK_pub[0] != tallierPk[0] || PK_pub[1] != tallierPk[1]) {
         throw new Error("PK mismatch");
       }
 
@@ -691,7 +691,7 @@ describe("MootVote", () => {
         revotingKeyNew,
       ] = poseidonDecrypt(
         message.ciphertext,
-        mulPointEscalar(message.ephPk, coordinatorSk),
+        mulPointEscalar(message.ephPk, tallierSk),
         message.nonce,
         LIMBS,
       );
@@ -774,7 +774,7 @@ describe("MootVote", () => {
       tallySaltNew,
       tallyOld,
       batchLen: BigInt(messages.length),
-      coordinatorSk,
+      tallierSk,
       ephPk,
       nonce,
       ciphertext,

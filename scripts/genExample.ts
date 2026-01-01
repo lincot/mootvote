@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   }
 
   writeFileSync(
-    `example/coordinator_prv.txt`,
+    `example/tallier_prv.txt`,
     "0x" + bytesToHex(genBabyJubKeypair(babyjub, eddsa).prv),
   );
 

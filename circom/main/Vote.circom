@@ -3,4 +3,4 @@ pragma circom 2.2.2;
 
 include "../Vote.circom";
 
-component main {public[censusRoot, pollId, nChoices, coordinatorPk, relayerId]} = Vote(40);
+component main {public[censusRoot, pollId, nChoices, tallierPk, relayerId]} = Vote(40);

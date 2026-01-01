@@ -74,17 +74,17 @@ export default function PollDetailPage() {
     })();
   }, [pollId]);
 
-  const isCoordinator = useMemo(() => {
+  const isTallier = useMemo(() => {
     if (!poll || KR.locked) return false;
     const acc = KR.accounts[KR.active];
     if (!acc) return false;
     const x = acc.pub[0].toString(16).padStart(64, "0");
     const y = acc.pub[1].toString(16).padStart(64, "0");
-    const isCoordinator = x.toLowerCase() ===
-        poll.coordinator_key[0].replace(/^0x/, "").toLowerCase() &&
+    const isTallier = x.toLowerCase() ===
+        poll.tallier_key[0].replace(/^0x/, "").toLowerCase() &&
       y.toLowerCase() ===
-        poll.coordinator_key[1].replace(/^0x/, "").toLowerCase();
-    return isCoordinator;
+        poll.tallier_key[1].replace(/^0x/, "").toLowerCase();
+    return isTallier;
   }, [poll, KR.locked, KR.active, KR.accounts]);
 
   useEffect(() => {
@@ -113,10 +113,10 @@ export default function PollDetailPage() {
   useEffect(() => {
     if (!poll) return;
     if (poll.tally || (isVoter && clock.isOver)) setTab("results");
-    else if (isCoordinator) setTab("tally");
+    else if (isTallier) setTab("tally");
     else if (isVoter) setTab("vote");
     else setTab("overview");
-  }, [poll, isVoter, isCoordinator, clock.isOver]);
+  }, [poll, isVoter, isTallier, clock.isOver]);
 
   const Tabs = () => {
     const TabBtn = (t: string, label: string, disabled = false) => (
@@ -147,7 +147,7 @@ export default function PollDetailPage() {
           t("poll.vote"),
           locked || hasTally || !isVoter || !clock.isActive,
         )}
-        {TabBtn("tally", t("poll.tally"), locked || hasTally || !isCoordinator)}
+        {TabBtn("tally", t("poll.tally"), locked || hasTally || !isTallier)}
         {TabBtn("results", t("poll.results"), !clock.isOver)}
       </div>
     );

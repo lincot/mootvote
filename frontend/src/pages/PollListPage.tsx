@@ -57,7 +57,7 @@ export default function PollListPage() {
       if (role !== "all roles") q.set("role", role);
       if (role === "tallier" || role === "all roles") {
         q.set(
-          "coordinator",
+          "tallier",
           (acc.pub[0].toString(16).padStart(64, "0") +
             acc.pub[1].toString(16).padStart(64, "0")).toLowerCase(),
         );
