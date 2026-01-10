@@ -193,7 +193,7 @@ mod tests {
         // Got inputs this way:
         //
         // for (const key of Object.keys(inputs)) {
-        //   if (key === "MsgLimit" || key === "PrevCount") {
+        //   if (key === "msgLimit" || key === "countOld") {
         //     console.log(`${key}: ${inputs[key]},`);
         //   } else if (key === "NoAuxQuota" || key === "NoAuxUniq") {
         //     console.log(`${key}: ${Boolean(inputs[key])},`);

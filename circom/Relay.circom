@@ -42,7 +42,7 @@ template Relay(DEPTH) {
     signal idxBits[DEPTH] <== Num2Bits(DEPTH)(nuLo); // Num2Bits asserts that lo is DEPTH bits
     nu === nuLo + nuHi * (1 << DEPTH);
 
-    signal isPrevEmpty <== IsZero()(countOld);
+    signal isOldEmpty <== IsZero()(countOld);
 
     SMTVerifier(DEPTH)(
         enabled <== 1,
@@ -53,7 +53,7 @@ template Relay(DEPTH) {
         isOld0 <== noAuxQuota, // not required for inclusion
         key <== nuLo,
         value <== countOld, // not required for non-inclusion
-        fnc <== isPrevEmpty
+        fnc <== isOldEmpty
     );
 
     signal rootQuotaNew <== SMTProcessor(DEPTH)(
@@ -65,7 +65,7 @@ template Relay(DEPTH) {
         newKey <== nuLo,
         newValue <== countOld + 1,
         // (1, 0) -> insert, (0, 1) -> update, (0, 0) -> no-op
-        fnc <== [isPrevEmpty, 1 - isPrevEmpty]
+        fnc <== [isOldEmpty, 1 - isOldEmpty]
     );
 
     SMTVerifier(DEPTH)(
