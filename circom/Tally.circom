@@ -145,26 +145,26 @@ template TallySingle(DEPTH, MAX_CHOICES) {
     signal leafOld <== PoseidonHasher(2)([choiceOld, revotingKeyOld]);
     signal leafNew <== PoseidonHasher(2)([choice, revotingKeyNew]);
 
-    signal revotingKeysEqual <== IsEqual()([revotingKeyOldFromMsg, revotingKeyOld]);
-    signal {binary} isVoteValid <== enabled * revotingKeysEqual;
+    signal revotingKeyMatches <== IsEqual()([revotingKeyOldFromMsg, revotingKeyOld]);
+    signal {binary} isVoteValid <== enabled * revotingKeyMatches;
 
     signal nuLo <-- nu & ((1 << DEPTH) - 1);
     signal nuHi <-- nu >> DEPTH;
-    signal idxBits[DEPTH] <== Num2Bits(DEPTH)(nuLo); // Num2Bits asserts that lo is DEPTH bits
+    // Num2Bits_strict in SMTVerifier asserts that nuLo is DEPTH bits wide.
     nu === nuLo + nuHi * (1 << DEPTH);
 
-    // if leaf was empty, old choice should be 0
+    // If leaf was empty, old choice should be 0.
     wasLeafEmpty * choiceOld === 0;
 
     SMTVerifier(DEPTH)(
         enabled <== enabled,
         root <== rootOld,
         siblings <== siblings,
-        oldKey <== auxKey, // not required for inclusion
-        oldValue <== auxValue, // not required for inclusion
-        isOld0 <== noAux, // not required for inclusion
+        oldKey <== auxKey,
+        oldValue <== auxValue,
+        isOld0 <== noAux,
         key <== nuLo,
-        value <== leafOld, // not required for non-inclusion
+        value <== leafOld,
         fnc <== wasLeafEmpty
     );
 

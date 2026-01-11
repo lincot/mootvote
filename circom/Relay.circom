@@ -39,7 +39,7 @@ template Relay(DEPTH) {
 
     signal nuLo <-- nu & ((1 << DEPTH) - 1);
     signal nuHi <-- nu >> DEPTH;
-    signal idxBits[DEPTH] <== Num2Bits(DEPTH)(nuLo); // Num2Bits asserts that lo is DEPTH bits
+    // Num2Bits_strict in SMTVerifier asserts that nuLo is DEPTH bits wide.
     nu === nuLo + nuHi * (1 << DEPTH);
 
     signal isOldEmpty <== IsZero()(countOld);
@@ -48,11 +48,11 @@ template Relay(DEPTH) {
         enabled <== 1,
         root <== rootQuotaOld,
         siblings <== siblingsQuota,
-        oldKey <== auxKeyQuota, // not required for inclusion
-        oldValue <== auxValueQuota, // not required for inclusion
-        isOld0 <== noAuxQuota, // not required for inclusion
+        oldKey <== auxKeyQuota,
+        oldValue <== auxValueQuota,
+        isOld0 <== noAuxQuota,
         key <== nuLo,
-        value <== countOld, // not required for non-inclusion
+        value <== countOld,
         fnc <== isOldEmpty
     );
 
