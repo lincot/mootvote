@@ -76,7 +76,7 @@
     "create_census": "Create census",
     "title": "Title",
     "description": "Description (optional)",
-    "members": "members",
+    "members": "Members",
     "name": "Name #{{num}}"
   },
   "census": {

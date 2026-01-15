@@ -44,10 +44,10 @@ export default function CensusJoinPage() {
   async function onBind() {
     try {
       setErr("");
-      setStage(t("census_join.signing"));
+      setStage(t("census_join.stage.signing"));
       const acct = KR.accounts[KR.active];
       const sig = await makeAuthSig(acct.prv, acct.pub);
-      setStage(t("census_join.submitting"));
+      setStage(t("census_join.stage.submitting"));
       const r = await fetch(
         `${CENSUS_URL}/census/${cid}/members/${pf!.member_id}/claim`,
         {
@@ -57,7 +57,7 @@ export default function CensusJoinPage() {
         },
       );
       if (!r.ok) throw new Error(await r.text());
-      setStage(t("census_join.joined"));
+      setStage(t("census_join.stage.joined"));
       setTimeout(() => nav(`/census/${cid}`), 800);
     } catch (e: any) {
       setErr(e.message || String(e));
