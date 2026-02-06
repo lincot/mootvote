@@ -81,9 +81,7 @@ const KeyringPanel: React.FC<{ open: boolean }> = ({ open }) => {
             type="password"
             value={KR.pass}
             onChange={(e) => KR.setPass(e.target.value)}
-            placeholder={creating
-              ? t("keyring.set_passphrase")
-              : t("keyring.passphrase")}
+            placeholder={t("keyring.passphrase")}
             className="w-full rounded border px-3 py-2 border-gray-300 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100"
           />
           {creating && (
@@ -91,7 +89,7 @@ const KeyringPanel: React.FC<{ open: boolean }> = ({ open }) => {
               type="password"
               value={confirmPass}
               onChange={(e) => setConfirmPass(e.target.value)}
-              placeholder="Confirm passphrase"
+              placeholder={t("keyring.confirm_passphrase")}
               className="w-full rounded border px-3 py-2 border-gray-300 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100"
             />
           )}
@@ -242,10 +240,11 @@ const KeyringPanel: React.FC<{ open: boolean }> = ({ open }) => {
       <div className="mt-6">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">
-            {t("keyring.revoting_keys")}
             {KR.accounts[KR.active]?.name
-              ? ` for ${KR.accounts[KR.active]?.name}`
-              : ""}
+              ? t("keyring.revoting_keys_for", {
+                name: KR.accounts[KR.active]?.name,
+              })
+              : t("keyring.revoting_keys")}
           </h3>
           <button
             className="text-xs underline"
