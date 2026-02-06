@@ -31,6 +31,7 @@ import { INPUT_CN } from "../input.ts";
 import { useTranslation } from "react-i18next";
 import ConnectSolana from "../components/ConnectSolana.tsx";
 import StepperCard from "../components/StepperCard.tsx";
+import { formatLamportsAsSol } from "../utils.ts";
 
 const MAX_POLL_DURATION = 365 * 24 * 60 * 60;
 
@@ -181,6 +182,12 @@ export const PollCreatePage: React.FC<{}> = () => {
   const censusCount = watch("censusCount");
   const selectedCensusId = watch("selectedCensusId");
   const selectedCensusTitle = watch("selectedCensusTitle");
+  const feeLamportsStr = watch("feeLamports");
+
+  const feeSolPreview = useMemo(() => {
+    if (!feeLamportsStr) return null;
+    return formatLamportsAsSol(BigInt(feeLamportsStr));
+  }, [feeLamportsStr]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -430,6 +437,11 @@ export const PollCreatePage: React.FC<{}> = () => {
               className={INPUT_CN}
               {...register("feeLamports")}
             />
+            {feeSolPreview && (
+              <div className="mt-1 text-xs text-neutral-600 dark:text-neutral-300">
+                = {feeSolPreview} SOL
+              </div>
+            )}
             {errors.feeLamports && (
               <p className="text-red-500 text-xs">
                 {errors.feeLamports.message}

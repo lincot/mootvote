@@ -65,7 +65,7 @@
     "tally": "Tally",
     "results": "Results",
     "choices": "Choices",
-    "fee": "Fee",
+    "poll_fee": "Poll fee",
     "platform_fee": "Platform fee",
     "total_votes": "Total votes",
     "unlock_zk": "Unlock “ZK Accounts” to vote or tally.",

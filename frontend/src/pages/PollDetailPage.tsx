@@ -8,6 +8,7 @@ import { Tally } from "../components/Tally.tsx";
 import { useTranslation } from "react-i18next";
 import { formatTimeDiff } from "../components/PollStatus.tsx";
 import ErrorBox from "../components/ErrorBox.tsx";
+import { formatLamportsAsSol } from "../utils.ts";
 
 export type PollClock = { label: string; isOver: boolean; isActive: boolean };
 
@@ -191,8 +192,10 @@ export default function PollDetailPage() {
                 </ul>
               </div>
               <div className="text-xs text-zinc-500">
-                {t("poll.fee")}: {poll.fee} · {t("poll.platform_fee")}:{" "}
-                {poll.platform_fee}
+                {t("poll.poll_fee")}: {formatLamportsAsSol(BigInt(poll.fee))}
+                {" "}
+                SOL · {t("poll.platform_fee")}:{" "}
+                {formatLamportsAsSol(BigInt(poll.platform_fee))} SOL
               </div>
             </div>
           )}
