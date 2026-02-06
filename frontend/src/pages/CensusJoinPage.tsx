@@ -4,7 +4,7 @@ import { makeAuthSig } from "../auth.ts";
 import { CENSUS_URL } from "../env.tsx";
 import { useKeyringCtx } from "../keyring.tsx";
 import { btn } from "../btn.ts";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import ErrorBox from "../components/ErrorBox.tsx";
 
 type Preflight = { member_id: number; name: string; census_title: string };
@@ -72,13 +72,22 @@ export default function CensusJoinPage() {
     <div className="max-w-xl mx-auto p-4">
       {err && <ErrorBox text={err} />}
       {!pf
-        ? <div className="text-sm">{stage || t("loading.loading")}</div>
+        ? (!err && (
+          <div className="text-sm">{stage || t("loading.loading")}</div>
+        ))
         : (
           <div className="space-y-3">
             <div className="text">
-              {t("census_join.were_invited")}{" "}
-              <span className="font-medium">{pf.census_title}</span> as{" "}
-              <span className="font-medium">{pf.name}</span>.
+              <Trans
+                i18nKey="census_join.were_invited_as"
+                values={{ censusTitle: pf.census_title, name: pf.name }}
+                components={[
+                  <></>,
+                  <span className="font-medium" />,
+                  <></>,
+                  <span className="font-medium" />,
+                ]}
+              />
             </div>
             {KR.locked && (
               <div className="text-sm text-amber-700 dark:text-amber-500">

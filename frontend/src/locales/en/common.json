@@ -111,7 +111,7 @@
       "submitting": "Submitting…",
       "joined": "Joined successfully"
     },
-    "were_invited": "You were invited to join census",
+    "were_invited_as": "You were invited to join <1>{{censusTitle}}</1> as <3>{{name}}</3>.",
     "unlock_zk": "Unlock “ZK Accounts” and select your account to bind.",
     "join": "Join census"
   },
