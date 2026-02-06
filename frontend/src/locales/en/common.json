@@ -78,7 +78,8 @@
       "sending": "Sending request…",
       "created": "Census created."
     },
-    "error": {
+    "form_error": {
+      "required": "Required",
       "members": "Fill in the member names"
     },
     "create_census": "Create census",
@@ -125,6 +126,16 @@
     },
     "error": {
       "census_is_empty": "Census is empty"
+    },
+    "form_error": {
+      "required": "Required",
+      "title_too_long": "Keep title short",
+      "positive_integer": "Must be a positive integer",
+      "census_empty": "Census is empty",
+      "invalid_date": "Invalid date",
+      "end_after_start": "End must be after start",
+      "poll_duration": "Poll duration must be ≤ 365 days.",
+      "hex32": "Enter 32-byte hex"
     },
     "create_poll": "Create poll",
     "title": "Poll title",

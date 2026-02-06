@@ -38,21 +38,20 @@ const MAX_POLL_DURATION = 365 * 24 * 60 * 60;
 const HEX = /^0x?[0-9a-fA-F]*$/;
 
 const schemaBase = z.object({
-  title: z.string().min(1, "Title is required").max(200, "Keep it short"),
-  choices: z.array(z.object({ value: z.string().min(1, "Required") }))
-    .min(1, "At least one choice").max(
-      MAX_CHOICES,
-      `Max ${MAX_CHOICES} choices`,
-    ),
+  title: z.string().min(1, "required").max(200, "title_too_long"),
+  choices: z.array(
+    z.object({ value: z.string().min(1, "required") }),
+  ).min(1).max(MAX_CHOICES),
   tallierMode: z.enum(["active", "manual"]),
   tallierX: z.string().optional(),
   tallierY: z.string().optional(),
-  start: z.string().min(1, "Start required"),
-  end: z.string().min(1, "End required"),
-  feeLamports: z.string().regex(/^\d+$/, "Integer lamports"),
+  start: z.string().min(1, "required"),
+  end: z.string().min(1, "required"),
+  feeLamports: z.string().regex(/^\d+$/, "positive_integer"),
   censusSource: z.enum(["upload", "existing"]),
   censusBytes: z.instanceof(Uint8Array),
-  censusCount: z.number().int().positive("Census empty").optional(),
+  censusCount: z.number().int().positive("census_empty")
+    .optional(),
   censusRootHex: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
   selectedCensusId: z.number().int().positive().optional(),
   selectedCensusTitle: z.string().optional(),
@@ -60,13 +59,13 @@ const schemaBase = z.object({
   const startMs = Date.parse(d.start);
   const endMs = Date.parse(d.end);
   if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
-    ctx.addIssue({ code: "custom", message: "Invalid date", path: ["end"] });
+    ctx.addIssue({ code: "custom", message: "invalid_date", path: ["end"] });
     return;
   }
   if (endMs <= startMs) {
     ctx.addIssue({
       code: "custom",
-      message: "End must be after start",
+      message: "end_after_start",
       path: ["end"],
     });
     return;
@@ -74,7 +73,7 @@ const schemaBase = z.object({
   if (endMs - startMs > MAX_POLL_DURATION * 1000) {
     ctx.addIssue({
       code: "custom",
-      message: "Poll duration must be ≤ 365 days.",
+      message: "poll_duration",
       path: ["end"],
     });
   }
@@ -86,8 +85,8 @@ const schema = z.discriminatedUnion("tallierMode", [
   }),
   schemaBase.safeExtend({
     tallierMode: z.literal("manual"),
-    tallierX: z.string().regex(HEX, "32-byte hex"),
-    tallierY: z.string().regex(HEX, "32-byte hex"),
+    tallierX: z.string().regex(HEX, "hex32"),
+    tallierY: z.string().regex(HEX, "hex32"),
   }),
 ]);
 
@@ -350,8 +349,10 @@ export const PollCreatePage: React.FC<{}> = () => {
             {t("poll_creation.title")}
           </label>
           <input className={INPUT_CN} {...register("title")} />
-          {errors.title && (
-            <p className="text-red-500 text-xs">{errors.title.message}</p>
+          {errors.title?.message && (
+            <p className="text-red-500 text-xs">
+              {t("poll_creation.form_error." + errors.title.message)}
+            </p>
           )}
 
           <label className="block text-sm font-medium">
@@ -362,8 +363,10 @@ export const PollCreatePage: React.FC<{}> = () => {
             className={INPUT_CN}
             {...register("start")}
           />
-          {errors.start && (
-            <p className="text-red-500 text-xs">{errors.start.message}</p>
+          {errors.start?.message && (
+            <p className="text-red-500 text-xs">
+              {t("poll_creation.form_error." + errors.start.message)}
+            </p>
           )}
 
           <label className="block text-sm font-medium">
@@ -374,8 +377,10 @@ export const PollCreatePage: React.FC<{}> = () => {
             className={INPUT_CN}
             {...register("end")}
           />
-          {errors.end && (
-            <p className="text-red-500 text-xs">{errors.end.message}</p>
+          {errors.end?.message && (
+            <p className="text-red-500 text-xs">
+              {t("poll_creation.form_error." + errors.end.message)}
+            </p>
           )}
 
           <div className="space-y-2">
@@ -409,9 +414,9 @@ export const PollCreatePage: React.FC<{}> = () => {
                   className={INPUT_CN}
                   {...register("tallierX")}
                 />
-                {errors.tallierX && (
+                {errors.tallierX?.message && (
                   <p className="text-red-600 text-xs">
-                    {errors.tallierX.message}
+                    {t("poll_creation.form_error." + errors.tallierX.message)}
                   </p>
                 )}
                 <input
@@ -419,9 +424,9 @@ export const PollCreatePage: React.FC<{}> = () => {
                   className={INPUT_CN}
                   {...register("tallierY")}
                 />
-                {errors.tallierY && (
+                {errors.tallierY?.message && (
                   <p className="text-red-600 text-xs">
-                    {errors.tallierY.message}
+                    {t("poll_creation.form_error." + errors.tallierY.message)}
                   </p>
                 )}
               </div>
@@ -442,9 +447,9 @@ export const PollCreatePage: React.FC<{}> = () => {
                 = {feeSolPreview} SOL
               </div>
             )}
-            {errors.feeLamports && (
+            {errors.feeLamports?.message && (
               <p className="text-red-500 text-xs">
-                {errors.feeLamports.message}
+                {t("poll_creation.form_error." + errors.feeLamports.message)}
               </p>
             )}
           </div>
@@ -481,9 +486,9 @@ export const PollCreatePage: React.FC<{}> = () => {
                 </button>
               </div>
             ))}
-            {errors.choices && (
+            {errors.choices?.message && (
               <p className="text-red-500 text-xs">
-                {errors.choices.message as string}
+                {t("poll_creation.form_error." + errors.choices.message)}
               </p>
             )}
           </div>
@@ -518,9 +523,9 @@ export const PollCreatePage: React.FC<{}> = () => {
                 {t("poll_creation.upload_file")}
               </label>
             </div>
-            {errors.censusSource && (
+            {errors.censusSource?.message && (
               <p className="text-red-600 text-xs">
-                {errors.censusSource.message as string}
+                {t("poll_creation.form_error." + errors.censusSource.message)}
               </p>
             )}
           </fieldset>
@@ -568,19 +573,16 @@ export const PollCreatePage: React.FC<{}> = () => {
                     e.target.files && onCensusFile(e.target.files[0])}
                 />
               </div>
-              {errors.censusBytes && (
+              {errors.censusCount?.message && (
                 <p className="text-red-600 text-xs">
-                  {errors.censusBytes.message}
+                  {t("poll_creation.form_error." + errors.censusCount.message)}
                 </p>
               )}
-              {errors.censusCount && (
+              {errors.censusRootHex?.message && (
                 <p className="text-red-600 text-xs">
-                  {errors.censusCount.message}
-                </p>
-              )}
-              {errors.censusRootHex && (
-                <p className="text-red-600 text-xs">
-                  {errors.censusRootHex.message}
+                  {t(
+                    "poll_creation.form_error." + errors.censusRootHex.message,
+                  )}
                 </p>
               )}
             </div>
@@ -605,9 +607,11 @@ export const PollCreatePage: React.FC<{}> = () => {
                   </div>
                 )}
               </div>
-              {errors.censusRootHex && (
+              {errors.censusRootHex?.message && (
                 <p className="text-red-600 text-xs">
-                  {errors.censusRootHex.message}
+                  {t(
+                    "poll_creation.form_error." + errors.censusRootHex.message,
+                  )}
                 </p>
               )}
             </div>

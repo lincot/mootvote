@@ -13,11 +13,9 @@ import UnlockToView from "../components/UnlockToView.tsx";
 import StepperCard from "../components/StepperCard.tsx";
 
 const schema = z.object({
-  title: z.string().min(1, "Title required").max(200),
+  title: z.string().min(1, "required").max(200),
   description: z.string().max(2000).optional(),
-  members: z.array(
-    z.object({ name: z.string().min(1, "Name required").max(200) }),
-  ),
+  members: z.array(z.object({ name: z.string().min(1) })),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -117,8 +115,10 @@ export default function CensusCreatePage() {
             className={INPUT_CN}
             {...register("title")}
           />
-          {errors.title && (
-            <p className="text-red-600 text-xs">{errors.title.message}</p>
+          {errors.title?.message && (
+            <p className="text-red-600 text-xs">
+              {t("census_creation.form_error." + errors.title.message)}
+            </p>
           )}
         </div>
 
@@ -131,8 +131,10 @@ export default function CensusCreatePage() {
             rows={3}
             {...register("description")}
           />
-          {errors.description && (
-            <p className="text-red-600 text-xs">{errors.description.message}</p>
+          {errors.description?.message && (
+            <p className="text-red-600 text-xs">
+              {t("census_creation.form_error." + errors.description.message)}
+            </p>
           )}
         </div>
 
@@ -169,7 +171,7 @@ export default function CensusCreatePage() {
             ))}
             {errors.members && (
               <p className="text-red-600 text-xs">
-                {t("census_creation.error.members")}
+                {t("census_creation.form_error.members")}
               </p>
             )}
           </div>
