@@ -407,7 +407,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       };
       await saveTallyStore(newStore);
       setStore(newStore);
-      await refreshRemaining();
+      setRemaining((r) => (r == null ? r : Math.max(0, r - batch.length)));
       setStage("done");
     } catch (e: any) {
       console.error(e);
