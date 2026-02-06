@@ -10,6 +10,7 @@ import { INPUT_CN } from "../input.ts";
 import { btn } from "../btn.ts";
 import { useTranslation } from "react-i18next";
 import UnlockToView from "../components/UnlockToView.tsx";
+import StepperCard from "../components/StepperCard.tsx";
 
 const schema = z.object({
   title: z.string().min(1, "Title required").max(200),
@@ -30,8 +31,19 @@ export default function CensusCreatePage() {
 
   const KR = useKeyringCtx();
   const nav = useNavigate();
-  const [err, setErr] = useState<string>("");
-  const [stage, setStage] = useState<string>("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const steps = useMemo(
+    () =>
+      [
+        { key: "sign", label: t("census_creation.stage.signing") },
+        { key: "send", label: t("census_creation.stage.sending") },
+        { key: "done", label: t("census_creation.stage.created") },
+      ] as const,
+    [],
+  );
+  type Stage = (typeof steps)[number]["key"] | null;
+  const [stage, setStage] = useState<Stage>(null);
 
   const {
     control,
@@ -56,15 +68,15 @@ export default function CensusCreatePage() {
 
   const onSubmit = async (data: FormValues) => {
     try {
-      setStage("Signing…");
-      setErr("");
+      setErr(null);
+      setStage("sign");
       const acct = KR.accounts[KR.active];
       if (KR.locked || !acct) {
         throw new Error("Unlock ZK Accounts and select an account");
       }
 
       const sig = await makeAuthSig(acct.prv, acct.pub);
-      setStage("Creating census…");
+      setStage("send");
       const body = {
         title: data.title.trim(),
         description: data.description?.trim() || null,
@@ -78,11 +90,10 @@ export default function CensusCreatePage() {
       });
       if (!r.ok) throw new Error(`create failed: ${await r.text()}`);
       const j = await r.json();
-      setStage("Created successfully");
+      setStage("done");
       setTimeout(() => nav(`/census/${j.census_id}`), 800);
     } catch (e: any) {
       console.error(e);
-      setStage("");
       setErr("Error: " + String(e?.message || e));
     }
   };
@@ -157,20 +168,26 @@ export default function CensusCreatePage() {
               </div>
             ))}
             {errors.members && (
-              <p className="text-red-600 text-xs">Check member names</p>
+              <p className="text-red-600 text-xs">
+                {t("census_creation.error.members")}
+              </p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button className={btn(!disabled)} disabled={disabled}>
-            {isSubmitting
-              ? t("loading.working")
-              : t("census_creation.create_census")}
-          </button>
-          {stage && <span className="text-sm text-purple-600">{stage}</span>}
-          {err && <div className="text-sm text-red-600">{err}</div>}
-        </div>
+        <StepperCard
+          steps={steps}
+          currentKey={stage}
+          finalKey="done"
+          errorText={err}
+          action={
+            <button className={btn(!disabled)} disabled={disabled}>
+              {isSubmitting
+                ? t("loading.working")
+                : t("census_creation.create_census")}
+            </button>
+          }
+        />
       </form>
     </div>
   );

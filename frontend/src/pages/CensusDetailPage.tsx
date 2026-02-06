@@ -5,6 +5,7 @@ import { CENSUS_URL } from "../env.tsx";
 import { useKeyringCtx } from "../keyring.tsx";
 import { useTranslation } from "react-i18next";
 import UnlockToView from "../components/UnlockToView.tsx";
+import ErrorBox from "../components/ErrorBox.tsx";
 
 type MemberRow = {
   id: number;
@@ -163,7 +164,7 @@ export default function CensusDetailPage() {
   return (
     <div className="max-w-xl mx-auto p-4">
       {loading && <div className="text-sm opacity-70 mt-2">Loading…</div>}
-      {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
+      {err && <ErrorBox text={err} />}
       {!loading && page && (
         <>
           <h2 className="text-xl font-semibold mb-3">{page.title}</h2>

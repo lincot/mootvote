@@ -73,6 +73,14 @@
     "poll": "Poll #{{id}}"
   },
   "census_creation": {
+    "stage": {
+      "signing": "Signing request…",
+      "sending": "Sending request…",
+      "created": "Census created."
+    },
+    "error": {
+      "members": "Fill in the member names"
+    },
     "create_census": "Create census",
     "title": "Title",
     "description": "Description (optional)",
@@ -115,6 +123,9 @@
       "arweave": "Uploading data to Arweave…",
       "created": "Poll created."
     },
+    "error": {
+      "census_is_empty": "Census is empty"
+    },
     "create_poll": "Create poll",
     "title": "Poll title",
     "start": "Start",
@@ -133,7 +144,7 @@
     "choose_census": "Choose census…",
     "chosen": "Chosen:",
     "census_bin": "Census (.bin)",
-    "entry_count": "Entry count:",
+    "voter_count": "Voter count:",
     "census_format": {
       "what_is_census_bin": "What is census.bin?",
       "census_file_format": "Census file format",
@@ -159,14 +170,13 @@
   },
   "vote": {
     "stage": {
-      "preparing": "Preparing keys & proof…",
-      "downloading": "Downloading census & building Merkle proof…",
-      "fetching_relayer": "Fetching relayer information…",
-      "proof": "Generating proof… (this may take a bit)",
+      "preparing": "Preparing keys…",
+      "downloading": "Downloading census…",
+      "proof": "Generating proof…",
       "preparing_relayer": "Preparing relayer request…",
       "submitting_to_relayer": "Submitting to relayer…",
       "sent_via_relayer": "Vote sent via relayer.",
-      "view_on_explorer": "View on Explorer",
+      "transaction": "Transaction",
       "sent": "Vote sent."
     },
     "cast": "Cast vote",
@@ -180,10 +190,10 @@
   },
   "tally": {
     "stage": {
-      "fetching_votes": "Fetching votes to tally…",
-      "generating_proof": "Generating proof… (this may take a bit)",
-      "submitted": "Tally batch submitted",
-      "finished": "Tally finished"
+      "fetching_votes": "Fetching votes…",
+      "generating_proof": "Generating proof…",
+      "submitted": "Tally batch submitted.",
+      "finished": "Tally finished."
     },
     "refresh_remaining": "Refresh remaining",
     "tally_next": "Tally next batch",

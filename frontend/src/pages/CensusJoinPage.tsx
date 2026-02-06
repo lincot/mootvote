@@ -5,6 +5,7 @@ import { CENSUS_URL } from "../env.tsx";
 import { useKeyringCtx } from "../keyring.tsx";
 import { btn } from "../btn.ts";
 import { useTranslation } from "react-i18next";
+import ErrorBox from "../components/ErrorBox.tsx";
 
 type Preflight = { member_id: number; name: string; census_title: string };
 
@@ -69,7 +70,7 @@ export default function CensusJoinPage() {
 
   return (
     <div className="max-w-xl mx-auto p-4">
-      {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
+      {err && <ErrorBox text={err} />}
       {!pf
         ? <div className="text-sm">{stage || t("loading.loading")}</div>
         : (

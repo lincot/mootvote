@@ -12,6 +12,7 @@ import { keyToLeafHex, useKeyringCtx } from "../keyring.tsx";
 import { btn } from "../btn.ts";
 import { useTranslation } from "react-i18next";
 import UnlockToView from "../components/UnlockToView.tsx";
+import ErrorBox from "../components/ErrorBox.tsx";
 
 export type PollItem = {
   poll_id: string;
@@ -65,7 +66,9 @@ export default function PollListPage() {
       if (role === "voter" || role == "all roles") {
         q.set("voter_leaf", await keyToLeafHex(acc.pub));
       }
-      if (status !== "all statuses") q.set("status", status);
+      if (status !== "all statuses") {
+        q.set("status", status[0].toUpperCase() + status.slice(1));
+      }
       if (before) q.set("before", String(before));
       const r = await fetch(`${INDEXER_URL}/polls?${q.toString()}`);
       if (!r.ok) throw new Error(await r.text());
@@ -123,7 +126,7 @@ export default function PollListPage() {
         t={t}
       />
 
-      {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
+      {err && <ErrorBox text={err} />}
       {loading && (
         <div className="text-sm opacity-70">{t("loading.loading")}</div>
       )}

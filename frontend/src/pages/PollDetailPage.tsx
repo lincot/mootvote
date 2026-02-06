@@ -7,6 +7,7 @@ import { Vote } from "../components/Vote.tsx";
 import { Tally } from "../components/Tally.tsx";
 import { useTranslation } from "react-i18next";
 import { formatTimeDiff } from "../components/PollStatus.tsx";
+import ErrorBox from "../components/ErrorBox.tsx";
 
 export type PollClock = { label: string; isOver: boolean; isActive: boolean };
 
@@ -155,7 +156,7 @@ export default function PollDetailPage() {
 
   return (
     <div className="max-w-xl mx-auto p-4">
-      {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
+      {err && <ErrorBox text={err} />}
       {!poll && !err && <div className="text-sm opacity-70">Loading…</div>}
       {poll && (
         <>

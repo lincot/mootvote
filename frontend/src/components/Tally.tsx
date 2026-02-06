@@ -18,7 +18,7 @@ import {
 } from "@iden3/js-merkletree";
 import type { PollDetail } from "../poll.ts";
 import { useKeyringCtx } from "../keyring.tsx";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { INDEXER_URL, RPC_URL } from "../env.tsx";
 import { Connection, Transaction } from "@solana/web3.js";
 import { getPoseidon } from "../circomMemo.ts";
@@ -26,6 +26,7 @@ import { MAX_CHOICES } from "../consts.ts";
 import { compressProof } from "../../../helpers/compressSolana.ts";
 import { btn } from "../btn.ts";
 import { useTranslation } from "react-i18next";
+import StepperCard from "./StepperCard.tsx";
 
 const STATE_DEPTH = 64;
 const MAX_BATCH = 6;
@@ -92,10 +93,31 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
   const KR = useKeyringCtx();
   const connection = new Connection(RPC_URL, { commitment: "confirmed" });
   const [store, setStore] = useState<TallyStore | null>(null);
-  const [err, setErr] = useState<string>("");
+  const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [stage, setStage] = useState<string>("");
   const [remaining, setRemaining] = useState<number | null>(null);
+
+  type Stage = "fetch" | "prove" | "send" | "done";
+  const [stage, setStage] = useState<Stage | null>(null);
+
+  const batchSteps = useMemo(
+    () =>
+      [
+        { key: "fetch", label: t("tally.stage.fetching_votes") },
+        { key: "prove", label: t("tally.stage.generating_proof") },
+        { key: "send", label: t("loading.sending_tx") },
+        { key: "done", label: t("tally.stage.submitted") },
+      ] as const,
+    [t],
+  );
+  const finishSteps = useMemo(
+    () =>
+      [
+        { key: "send", label: t("loading.sending_tx") },
+        { key: "done", label: t("tally.stage.finished") },
+      ] as const,
+    [t],
+  );
 
   const pollId = BigInt(poll.poll_id);
 
@@ -134,7 +156,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       if (busy) return;
       setBusy(true);
       setErr("");
-      setStage(t("tally.stage.fetching_votes"));
+      setStage("fetch");
       if (!wallet.publicKey) throw new Error("Connect Solana wallet");
       if (!keypair) throw new Error("No active ZK tallier key");
       const poseidon = await getPoseidon();
@@ -150,7 +172,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const batch = page.items;
       if (batch.length === 0) throw new Error("No new votes to tally");
 
-      setStage(t("tally.stage.generating_proof"));
+      setStage("prove");
       const db = new InMemoryDB(new Uint8Array());
       const mt = new Merkletree(db, true, STATE_DEPTH);
       for (
@@ -331,7 +353,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         throw new Error("tallyHashNew mismatch");
       }
 
-      setStage(t("loading.sending_tx"));
+      setStage("send");
       const serialized = compressProof(proof);
       const ixs = [];
       if (!store) {
@@ -386,11 +408,10 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       await saveTallyStore(newStore);
       setStore(newStore);
       await refreshRemaining();
-      setStage(t("tally.stage.submitted"));
+      setStage("done");
     } catch (e: any) {
       console.error(e);
       setErr("Error: " + String(e?.message || e));
-      setStage("");
     } finally {
       setBusy(false);
     }
@@ -401,7 +422,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       if (busy) return;
       setBusy(true);
       setErr("");
-      setStage(t("loading.sending_tx"));
+      setStage("send");
       if (!wallet.publicKey) throw new Error("Connect Solana wallet");
       const finalCounts = store
         ? store.tallyCounts.map((x) => BigInt(x))
@@ -433,11 +454,10 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
       tx.feePayer = wallet.publicKey;
       await wallet.sendTransaction(tx, connection, { maxRetries: 3 });
-      setStage(t("tally.stage.finished"));
+      setStage("done");
     } catch (e: any) {
       console.error(e);
       setErr("Error: " + String(e?.message || e));
-      setStage("");
     } finally {
       setBusy(false);
     }
@@ -461,6 +481,9 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
     0,
     Math.min(100, Math.round((processed / total) * 100)),
   );
+  const tallyNextEnabled = remaining !== 0;
+  const finishEnabled = Date.now() / 1000 >= poll.voting_end_time &&
+    remaining === 0;
   return (
     <>
       <div className="mt-4">
@@ -503,45 +526,46 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           );
         })()}
       </div>
-      <div className="mt-3 flex items-center gap-2">
-        {remaining !== 0 && (
+      {(tallyNextEnabled || finishEnabled) &&
+        (
+          <StepperCard
+            steps={tallyNextEnabled ? batchSteps : finishSteps}
+            currentKey={stage}
+            finalKey="done"
+            errorText={err ?? undefined}
+            action={tallyNextEnabled
+              ? (
+                <button
+                  className={btn(!busy && !!wallet.publicKey)}
+                  disabled={busy || !wallet.publicKey}
+                  onClick={onTallyNext}
+                >
+                  {t("tally.tally_next")}
+                </button>
+              )
+              : (
+                <button
+                  className={btn(!busy && !!wallet.publicKey)}
+                  disabled={busy || !wallet.publicKey}
+                  onClick={onFinishTally}
+                >
+                  {t("tally.finish")}
+                </button>
+              )}
+          />
+        )}
+
+      {store && (
+        <div className="mt-2 flex justify-end">
           <button
-            className={btn(!busy && !!wallet.publicKey)}
-            disabled={busy || !wallet.publicKey}
-            onClick={onTallyNext}
+            className="px-3 py-2 text-xs underline opacity-70"
+            disabled={busy}
+            onClick={onResetTally}
           >
-            {t("tally.tally_next")}
+            {t("tally.reset")}
           </button>
-        )}
-        {Date.now() / 1000 >= poll.voting_end_time && remaining === 0 &&
-          (
-            <button
-              className={btn(!busy && !!wallet.publicKey)}
-              disabled={busy || !wallet.publicKey}
-              onClick={onFinishTally}
-            >
-              {t("tally.finish")}
-            </button>
-          )}
-        <span className="text-sm text-purple-600">{stage}</span>
-        {err && (
-          <span className="text-sm text-red-500 whitespace-pre-wrap">
-            {err}
-          </span>
-        )}
-        {/* We don't want to hide it when poll is over, server may lag... */}
-        {store && (
-          <>
-            <button
-              className="ml-auto px-3 py-2 text-xs underline opacity-70"
-              disabled={busy}
-              onClick={onResetTally}
-            >
-              {t("tally.reset")}
-            </button>
-          </>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
 };

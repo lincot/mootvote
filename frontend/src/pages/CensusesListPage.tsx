@@ -6,6 +6,7 @@ import { useKeyringCtx } from "../keyring.tsx";
 import { btn } from "../btn.ts";
 import { useTranslation } from "react-i18next";
 import UnlockToView from "../components/UnlockToView.tsx";
+import ErrorBox from "../components/ErrorBox.tsx";
 
 const CENSUS_PAGE_LIMIT = 20;
 
@@ -111,7 +112,7 @@ export default function CensusesListPage() {
         </button>
       </div>
 
-      {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
+      {err && <ErrorBox text={err} />}
       {loading && <div className="text-sm opacity-70 mb-2">Loading…</div>}
 
       <div className="rounded-xl border divide-y dark:divide-neutral-800 overflow-hidden">

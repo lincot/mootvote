@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { CENSUS_URL } from "../env.tsx";
 import { useKeyringCtx } from "../keyring.tsx";
 import { useTranslation } from "react-i18next";
+import ErrorBox from "./ErrorBox.tsx";
 
 type CensusListItem = {
   id: number;
@@ -15,7 +16,7 @@ type CensusListOut = { items: CensusListItem[]; next_before: number | null };
 export const ChooseCensusModal: React.FC<{
   open: boolean;
   onClose: () => void;
-  onPick: (it: { id: number; title: string }) => void;
+  onPick: (it: { id: number; title: string }) => Promise<void>;
 }> = ({
   open,
   onClose,
@@ -29,6 +30,7 @@ export const ChooseCensusModal: React.FC<{
   const [q, setQ] = useState("");
   const [before, setBefore] = useState<number | null>(null);
   const [stack, setStack] = useState<number[]>([]);
+  const [pickingId, setPickingId] = useState<number | null>(null);
 
   const canPrev = stack.length > 0;
   const canNext = !!list?.next_before;
@@ -133,7 +135,7 @@ export const ChooseCensusModal: React.FC<{
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-          {err && <div className="text-sm text-red-600">{err}</div>}
+          {err && <ErrorBox text={err} />}
           {KR.locked && (
             <div className="text-sm text-amber-700 dark:text-amber-500">
               {t("census_modal.unlock_zk")}
@@ -158,7 +160,17 @@ export const ChooseCensusModal: React.FC<{
                   shown.map((it) => (
                     <button
                       key={it.id}
-                      onClick={() => onPick({ id: it.id, title: it.title })}
+                      disabled={pickingId !== null}
+                      onClick={async () => {
+                        try {
+                          setErr("");
+                          setPickingId(it.id);
+                          await onPick({ id: it.id, title: it.title });
+                        } catch (e: any) {
+                          console.error(e);
+                          setErr(e?.message || String(e));
+                        }
+                      }}
                       className="w-full text-left p-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
                     >
                       <div className="font-medium">{it.title}</div>

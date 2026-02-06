@@ -20,7 +20,7 @@ import { CLUSTER, RELAYER_URL, RPC_URL } from "../env.tsx";
 import type { PollDetail } from "../poll.ts";
 import { idForAccount, useKeyringCtx, useRevoKeysCtx } from "../keyring.tsx";
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
-import { useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { toBytesBE32, toHex32 } from "../../../helpers/utils.ts";
 import { CENSUS_DEPTH } from "../consts.ts";
 import { randomScalar } from "../../../helpers/key.ts";
@@ -29,6 +29,7 @@ import { btn } from "../btn.ts";
 import { Help } from "./Help.tsx";
 import { useTranslation } from "react-i18next";
 import ConnectSolana from "./ConnectSolana.tsx";
+import StepperCard from "./StepperCard.tsx";
 
 const VOTE_WASM_URL = "/zk/Vote/Vote.wasm";
 const VOTE_ZKEY_URL = "/zk/Vote/groth16_pkey.zkey";
@@ -57,10 +58,29 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
   const RK = useRevoKeysCtx();
   const connection = new Connection(RPC_URL, { commitment: "confirmed" });
   const [selected, setSelected] = useState<number | null>(null);
-  const [stage, setStage] = useState<string | React.ReactNode>("");
   const [useRelayer, setUseRelayer] = useState<boolean>(true);
-  const [err, setErr] = useState<string>("");
+  const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [doneMsg, setDoneMsg] = useState<ReactNode | null>(null);
+
+  const steps = useMemo(
+    () =>
+      [
+        { key: "prepare", label: t("vote.stage.preparing") },
+        { key: "download", label: t("vote.stage.downloading") },
+        { key: "proof", label: t("vote.stage.proof") },
+        {
+          key: "submit",
+          label: useRelayer
+            ? t("vote.stage.submitting_to_relayer")
+            : t("loading.sending_tx"),
+        },
+        { key: "done", label: doneMsg ?? t("vote.stage.sent") },
+      ] as const,
+    [t, useRelayer, doneMsg],
+  );
+  type StepKey = (typeof steps)[number]["key"] | null;
+  const [stage, setStage] = useState<StepKey>(null);
 
   const title = poll.title;
   const choices = poll.choices;
@@ -74,13 +94,14 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
     try {
       if (busy) return;
       setBusy(true);
-      setErr("");
+      setErr(null);
+      setDoneMsg(null);
       if (!useRelayer && !wallet.publicKey) {
         throw new Error("Connect your Solana wallet to vote without relayer");
       }
       if (selected == null) throw new Error("Select a choice");
 
-      setStage(t("vote.stage.preparing"));
+      setStage("prepare");
       const eddsa = await getEddsa();
       const babyjub = await getBabyjub();
       const poseidon = await getPoseidon();
@@ -107,7 +128,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const pollId = BigInt(poll.poll_id);
       const choice = BigInt(selected + 1);
 
-      setStage(t("vote.stage.downloading"));
+      setStage("download");
       const ab: ArrayBuffer = await fetch(poll.census_url).then((r) =>
         r.arrayBuffer()
       );
@@ -191,7 +212,6 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       let relayerId = 0n;
       let relayerNu;
       if (useRelayer) {
-        setStage(t("vote.stage.fetching_relayer"));
         const relayerConfig = await fetchRelayerConfig(connection);
         if (!relayerConfig) {
           throw new Error("Relayer not initialized");
@@ -202,7 +222,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         relayerNu = F.toObject(poseidon([sigHash, relayerId]));
       }
 
-      setStage(t("vote.stage.proof"));
+      setStage("proof");
       const inputs = {
         censusRoot: BigInt("0x" + poll.census_root),
         pollId,
@@ -228,9 +248,8 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       );
       const serializedProof = compressProof(proof);
 
+      setStage("submit");
       if (useRelayer) {
-        setStage(t("vote.stage.preparing_relayer"));
-
         const msgHashBig = F.toObject(
           poseidon([ephPk[0], ephPk[1], nonce, ...ciphertext]),
         ) as bigint;
@@ -289,7 +308,6 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           accounts,
         };
 
-        setStage(t("vote.stage.submitting_to_relayer"));
         const resp = await fetch(`${RELAYER_URL}/relay`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -304,21 +322,21 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
 
         const q = CLUSTER === "devnet" ? "?cluster=devnet" : "";
         const url = `https://explorer.solana.com/tx/${signature}${q}`;
-        setStage(
+        setDoneMsg(
           <>
-            {t("vote.stage.sent_via_relayer")}&nbsp;
+            {t("vote.stage.sent_via_relayer")}
+            <br />
             <a
               href={url}
               target="_blank"
               rel="noreferrer"
               className="underline underline-offset-2"
             >
-              {t("vote.stage.view_on_explorer")}
+              {t("vote.stage.transaction")}
             </a>
           </>,
         );
       } else {
-        setStage(t("loading.sending_tx"));
         const platform = await fetchPlatformConfig(connection);
         const ix: InstructionWithCu = await vote({
           payer: wallet.publicKey!,
@@ -345,14 +363,13 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
         tx.feePayer = wallet.publicKey!;
         await wallet.sendTransaction(tx, connection, { maxRetries: 3 });
-        setStage(t("vote.stage.sent"));
       }
 
       await RK.setForPoll(accountId, pollIdBig, { ...newRec, title });
+      setStage("done");
     } catch (e: any) {
       console.error(e);
       setErr(t("error") + " " + String(e?.message || e));
-      setStage("");
     } finally {
       setBusy(false);
     }
@@ -381,17 +398,21 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         ))}
       </div>
 
-      <div className="mt-4 flex items-center gap-3">
-        <button
-          className={btn(!disabled)}
-          disabled={disabled}
-          onClick={onVoteClick}
-        >
-          {t("vote.cast")}
-        </button>
-        {stage && <span className="text-sm text-purple-600">{stage}</span>}
-      </div>
-      {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
+      <StepperCard
+        steps={steps}
+        currentKey={stage}
+        finalKey="done"
+        errorText={err}
+        action={
+          <button
+            className={btn(!disabled)}
+            disabled={disabled}
+            onClick={onVoteClick}
+          >
+            {t("vote.cast")}
+          </button>
+        }
+      />
       {!useRelayer && <ConnectSolana />}
       <div className="mt-3 flex items-center">
         <label className="flex items-center gap-2 text-sm">

@@ -22,7 +22,7 @@ import {
 import { getMerkleRoot } from "../../../helpers/merkletree.ts";
 import { useKeyringCtx } from "../keyring.tsx";
 import { CENSUS_URL, CLUSTER, RPC_URL } from "../env.tsx";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { btn } from "../btn.ts";
 import { Help } from "../components/Help.tsx";
 import { CENSUS_DEPTH, MAX_CHOICES } from "../consts.ts";
@@ -30,6 +30,7 @@ import { turboBatchUpload } from "../arweave.ts";
 import { INPUT_CN } from "../input.ts";
 import { useTranslation } from "react-i18next";
 import ConnectSolana from "../components/ConnectSolana.tsx";
+import StepperCard from "../components/StepperCard.tsx";
 
 const MAX_POLL_DURATION = 365 * 24 * 60 * 60;
 
@@ -181,13 +182,24 @@ export const PollCreatePage: React.FC<{}> = () => {
     control,
     name: "choices",
   });
-  const [stage, setStage] = useState<string>("");
-  const [errMsg, setErrMsg] = useState("");
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+
+  const steps = useMemo(
+    () =>
+      [
+        { key: "upload", label: t("poll_creation.stage.arweave") },
+        { key: "tx", label: t("loading.sending_tx") },
+        { key: "done", label: t("poll_creation.stage.created") },
+      ] as const,
+    [t],
+  );
+  type Stage = (typeof steps)[number]["key"] | null;
+  const [stage, setStage] = useState<Stage>(null);
 
   const onSubmit = async (data: FormValues) => {
     try {
-      setErrMsg("");
-      setStage(t("poll_creation.stage.arweave"));
+      setErrMsg(null);
+      setStage("upload");
 
       if (!wallet.publicKey || !wallet.signMessage || !wallet.signTransaction) {
         throw new Error("Connect your Solana wallet first");
@@ -220,7 +232,7 @@ export const PollCreatePage: React.FC<{}> = () => {
       console.log("Description URL:", descUrl);
       console.log("Census URL:", censusUrl);
 
-      setStage(t("loading.sending_tx"));
+      setStage("tx");
 
       const start = localInputToUnixSeconds(data.start);
       const end = localInputToUnixSeconds(data.end);
@@ -266,11 +278,10 @@ export const PollCreatePage: React.FC<{}> = () => {
 
       await wallet.sendTransaction(tx, connection!, { maxRetries: 3 });
 
-      setStage(t("poll_creation.stage.created"));
+      setStage("done");
     } catch (e: any) {
       console.error(e);
       setErrMsg("Error: " + String(e?.message || e));
-      setStage("");
     }
   };
 
@@ -289,37 +300,28 @@ export const PollCreatePage: React.FC<{}> = () => {
 
   const [openChoose, setOpenChoose] = useState(false);
   const handlePickExisting = async (picked: { id: number; title: string }) => {
-    try {
-      const acct = KR.accounts[KR.active];
-      if (!acct) throw new Error("Unlock ZK Accounts");
-      const sig = await makeAuthSig(acct.prv, acct.pub);
-      const r = await fetch(`${CENSUS_URL}/census/${picked.id}/export`, {
-        method: "GET",
-        headers: { ...sig },
-      });
-      if (!r.ok) throw new Error(await r.text());
-      const buf = new Uint8Array(await r.arrayBuffer());
-      const { leaves } = await parseUploadedCensus(buf);
-      const root = await getMerkleRoot(CENSUS_DEPTH, leaves);
-      setValue("selectedCensusId", picked.id, { shouldValidate: true });
-      setValue("selectedCensusTitle", picked.title, { shouldValidate: true });
-      setValue("censusBytes", buf, { shouldValidate: true });
-      setValue("censusCount", leaves.length, { shouldValidate: true });
-      setValue("censusRootHex", "0x" + toHex32(root), { shouldValidate: true });
-      setOpenChoose(false);
-    } catch (e: any) {
-      console.error(e);
-      setErrMsg(e?.message || String(e));
+    const acct = KR.accounts[KR.active];
+    if (!acct) throw new Error("Unlock ZK Accounts");
+    const sig = await makeAuthSig(acct.prv, acct.pub);
+    const r = await fetch(`${CENSUS_URL}/census/${picked.id}/export`, {
+      method: "GET",
+      headers: { ...sig },
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const buf = new Uint8Array(await r.arrayBuffer());
+    if (buf.length === 0) {
+      throw new Error(t("poll_creation.error.census_is_empty"));
     }
+    const { leaves } = await parseUploadedCensus(buf);
+    const root = await getMerkleRoot(CENSUS_DEPTH, leaves);
+    setValue("selectedCensusId", picked.id, { shouldValidate: true });
+    setValue("selectedCensusTitle", picked.title, { shouldValidate: true });
+    setValue("censusBytes", buf, { shouldValidate: true });
+    setValue("censusCount", leaves.length, { shouldValidate: true });
+    setValue("censusRootHex", "0x" + toHex32(root), { shouldValidate: true });
+    setOpenChoose(false);
   };
 
-  console.log(
-    "disabled",
-    isSubmitting,
-    !isValid,
-    !wallet.publicKey,
-    tallierMode === "active" && !KR.accounts[KR.active],
-  );
   const disabled = isSubmitting || !isValid || !wallet.publicKey ||
     (tallierMode === "active" && !KR.accounts[KR.active]);
   return (
@@ -602,21 +604,19 @@ export const PollCreatePage: React.FC<{}> = () => {
       </div>
 
       <ConnectSolana />
-      <div className="mt-4 flex items-center gap-3">
-        <button
-          className={btn(!disabled)}
-          disabled={disabled}
-        >
-          {isSubmitting ? t("loading.working") : t("poll_creation.create_poll")}
-        </button>
-        <span className="text-sm text-purple-600">{stage}</span>
-      </div>
-
-      {errMsg && (
-        <div className="mt-3 text-sm text-red-500 whitespace-pre-wrap">
-          {errMsg}
-        </div>
-      )}
+      <StepperCard
+        steps={steps}
+        currentKey={stage}
+        finalKey="done"
+        errorText={errMsg}
+        action={
+          <button className={btn(!disabled)} disabled={disabled}>
+            {isSubmitting
+              ? t("loading.working")
+              : t("poll_creation.create_poll")}
+          </button>
+        }
+      />
 
       {openChoose && (
         <ChooseCensusModal
@@ -658,7 +658,7 @@ const ComputedCensusHints = ({ control }: { control: any }) => {
   return (
     <div className="text-xs mt-1 text-neutral-600 dark:text-neutral-300">
       {values?.censusCount
-        ? <div>{t("poll_creation.entry_count")} {values.censusCount}</div>
+        ? <div>{t("poll_creation.voter_count")} {values.censusCount}</div>
         : null}
     </div>
   );
