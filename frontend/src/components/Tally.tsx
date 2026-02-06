@@ -99,6 +99,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
 
   type Stage = "fetch" | "prove" | "send" | "done";
   const [stage, setStage] = useState<Stage | null>(null);
+  const [flow, setFlow] = useState<"batch" | "finish" | null>(null);
 
   const batchSteps = useMemo(
     () =>
@@ -155,7 +156,8 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
     try {
       if (busy) return;
       setBusy(true);
-      setErr("");
+      setErr(null);
+      setFlow("batch");
       setStage("fetch");
       if (!wallet.publicKey) throw new Error("Connect Solana wallet");
       if (!keypair) throw new Error("No active ZK tallier key");
@@ -421,7 +423,8 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
     try {
       if (busy) return;
       setBusy(true);
-      setErr("");
+      setErr(null);
+      setFlow("finish");
       setStage("send");
       if (!wallet.publicKey) throw new Error("Connect Solana wallet");
       const finalCounts = store
@@ -471,6 +474,9 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
     if (!ok) return;
     resetTallyStore(pollId, accountId);
     setStore(null);
+    setFlow(null);
+    setStage(null);
+    setErr(null);
     await refreshRemaining();
   }, [store, refreshRemaining]);
 
@@ -526,32 +532,43 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           );
         })()}
       </div>
-      {(tallyNextEnabled || finishEnabled) &&
+      {tallyNextEnabled &&
         (
           <StepperCard
-            steps={tallyNextEnabled ? batchSteps : finishSteps}
-            currentKey={stage}
+            steps={batchSteps}
+            currentKey={flow === "batch" ? stage : null}
             finalKey="done"
             errorText={err ?? undefined}
-            action={tallyNextEnabled
-              ? (
-                <button
-                  className={btn(!busy && !!wallet.publicKey)}
-                  disabled={busy || !wallet.publicKey}
-                  onClick={onTallyNext}
-                >
-                  {t("tally.tally_next")}
-                </button>
-              )
-              : (
-                <button
-                  className={btn(!busy && !!wallet.publicKey)}
-                  disabled={busy || !wallet.publicKey}
-                  onClick={onFinishTally}
-                >
-                  {t("tally.finish")}
-                </button>
-              )}
+            action={
+              <button
+                className={btn(!busy && !!wallet.publicKey)}
+                disabled={busy || !wallet.publicKey}
+                onClick={onTallyNext}
+              >
+                {t("tally.tally_next")}
+              </button>
+            }
+          />
+        )}
+      {finishEnabled &&
+        (
+          <StepperCard
+            steps={finishSteps}
+            currentKey={flow === "finish" &&
+                (stage === "send" || stage === "done")
+              ? stage
+              : null}
+            finalKey="done"
+            errorText={err ?? undefined}
+            action={
+              <button
+                className={btn(!busy && !!wallet.publicKey)}
+                disabled={busy || !wallet.publicKey}
+                onClick={onFinishTally}
+              >
+                {t("tally.finish")}
+              </button>
+            }
           />
         )}
 
