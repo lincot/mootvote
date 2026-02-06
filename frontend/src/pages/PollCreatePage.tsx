@@ -177,6 +177,10 @@ export const PollCreatePage: React.FC<{}> = () => {
     },
   });
   const tallierMode = watch("tallierMode");
+  const censusSource = watch("censusSource");
+  const censusCount = watch("censusCount");
+  const selectedCensusId = watch("selectedCensusId");
+  const selectedCensusTitle = watch("selectedCensusTitle");
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -509,7 +513,7 @@ export const PollCreatePage: React.FC<{}> = () => {
             )}
           </fieldset>
 
-          {(control._formValues as FormValues).censusSource === "upload" && (
+          {censusSource === "upload" && (
             <div className="mt-3">
               <div className="flex gap-2">
                 <label className="mb-2 block text-sm font-medium">
@@ -570,7 +574,7 @@ export const PollCreatePage: React.FC<{}> = () => {
             </div>
           )}
 
-          {(control._formValues as FormValues).censusSource === "existing" && (
+          {censusSource === "existing" && (
             <div className="mt-3 space-y-2">
               <div className="flex items-center gap-2">
                 <button
@@ -580,11 +584,11 @@ export const PollCreatePage: React.FC<{}> = () => {
                 >
                   {t("poll_creation.choose_census")}
                 </button>
-                {(control._formValues as FormValues).selectedCensusId && (
+                {selectedCensusId && (
                   <div className="text-sm">
                     {t("poll_creation.chosen")}{" "}
                     <span className="font-medium">
-                      {(control._formValues as FormValues).selectedCensusTitle}
+                      {selectedCensusTitle}
                     </span>
                   </div>
                 )}
@@ -597,9 +601,7 @@ export const PollCreatePage: React.FC<{}> = () => {
             </div>
           )}
 
-          {(control._formValues as FormValues).censusCount
-            ? <ComputedCensusHints control={control} />
-            : null}
+          {censusCount ? <CensusHints censusCount={censusCount} /> : null}
         </div>
       </div>
 
@@ -652,14 +654,11 @@ const ActiveTallierSummary: React.FC = () => {
   );
 };
 
-const ComputedCensusHints = ({ control }: { control: any }) => {
+const CensusHints = ({ censusCount }: { censusCount: number }) => {
   const { t } = useTranslation();
-  const values = control._formValues as FormValues;
   return (
     <div className="text-xs mt-1 text-neutral-600 dark:text-neutral-300">
-      {values?.censusCount
-        ? <div>{t("poll_creation.voter_count")} {values.censusCount}</div>
-        : null}
+      <div>{t("poll_creation.voter_count")} {censusCount}</div>
     </div>
   );
 };
