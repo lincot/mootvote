@@ -90,7 +90,10 @@ async fn main() {
     );
 
     let mut event_processor = EventProcessor::<IndexerEvent>::new(logs_receiver, event_sender);
-    let reqwest_client = reqwest::Client::new();
+    let reqwest_client = reqwest::Client::builder()
+        .user_agent("mootvote-indexer/0.1")
+        .build()
+        .unwrap();
     let census_manager =
         CensusManager::new(pg_pool.clone(), reqwest_client.clone(), census_receiver, 3);
     let description_manager =
