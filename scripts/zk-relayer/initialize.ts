@@ -3,15 +3,17 @@ import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet.js";
 import { initialize, toTransaction } from "@lincot/zk-relayer-sdk";
 import { expect } from "chai";
 import { sendAndConfirmVersionedTx } from "../../helpers/utils.ts";
+import { PublicKey } from "@solana/web3.js";
 
 async function main(): Promise<void> {
   if (process.argv.length < 2 + 2) {
-    console.error("Usage: initialize <fee> <endpoint>");
+    console.error("Usage: initialize <fee> <feeKey> <endpoint>");
     process.exit(1);
   }
 
   const fee = BigInt(process.argv[2]);
-  const relayerEndpoint = process.argv[3];
+  const relayerFeeKey = new PublicKey(process.argv[3]);
+  const relayerEndpoint = process.argv[4];
 
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
@@ -20,10 +22,10 @@ async function main(): Promise<void> {
   try {
     const ix = await initialize({
       admin: payer.publicKey,
-      fee: fee,
+      fee,
       payer: payer.publicKey,
       relayerEndpoint,
-      relayerFeeKey: payer.publicKey,
+      relayerFeeKey,
     });
     const transactionSignature = await sendAndConfirmVersionedTx(
       provider.connection,
