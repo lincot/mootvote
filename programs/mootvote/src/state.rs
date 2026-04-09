@@ -61,9 +61,9 @@ pub struct CompressedProof {
 impl CompressedProof {
     pub fn decompress(&self) -> core::result::Result<Proof, AltBn128CompressionError> {
         Ok(Proof {
-            a: alt_bn128_g1_decompress(&self.a)?,
-            b: alt_bn128_g2_decompress(&self.b)?,
-            c: alt_bn128_g1_decompress(&self.c)?,
+            a: alt_bn128_g1_decompress_be(&self.a)?,
+            b: alt_bn128_g2_decompress_be(&self.b)?,
+            c: alt_bn128_g1_decompress_be(&self.c)?,
         })
     }
 }

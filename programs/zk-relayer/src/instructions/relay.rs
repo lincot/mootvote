@@ -21,12 +21,12 @@ pub struct Relay<'info> {
         constraint = ALLOWED_PROGRAMS.contains(target_program.key)
             @ ZkRelayerError::ProgramNotAllowed
     )]
-    target_program: AccountInfo<'info>,
+    target_program: UncheckedAccount<'info>,
     system_program: Program<'info, System>,
 }
 
 pub fn relay<'info>(
-    ctx: Context<'_, '_, '_, 'info, Relay<'info>>,
+    ctx: Context<'info, Relay<'info>>,
     state_id: u64,
     proof: CompressedProof,
     root_state_new: [u8; 32],

@@ -1,7 +1,6 @@
+#![expect(clippy::diverging_sub_expression)]
+#![expect(clippy::too_many_arguments)]
 #![allow(unexpected_cfgs)]
-#![allow(clippy::too_many_arguments)]
-// fixes `#[program]` warning
-#![allow(deprecated)]
 
 use anchor_lang::prelude::*;
 
@@ -13,12 +12,12 @@ pub mod state;
 mod utils;
 pub mod vk;
 
-declare_id!("Re1aDNwUYroFdKmsPDKnZaQPxxKtDBvwNctH1w9ow6j");
+declare_id!("Re1ayvvPwJq5NME13UGtyt7X7nC9Zr8PfQdQthquks9");
 
 /// The list of allowed programs. Relayer has to trust the program, otherwise
 /// a transaction could fail and waste network fee. Transaction simulation
 /// wouldn't help with that.
-const ALLOWED_PROGRAMS: &[Pubkey] = &[pubkey!("MootG8ueTooVorJJq3kxdXLLg59ZW6phaHpoWeSySqB")];
+const ALLOWED_PROGRAMS: &[Pubkey] = &[pubkey!("MootuH214qRLx112xw76ybo1VxwZsQAR539m3Bou6GY")];
 
 #[program]
 pub mod zk_relayer {
@@ -57,7 +56,7 @@ pub mod zk_relayer {
 
     #[instruction(discriminator = 3u8)]
     pub fn relay<'info>(
-        ctx: Context<'_, '_, '_, 'info, Relay<'info>>,
+        ctx: Context<'info, Relay<'info>>,
         state_id: u64,
         proof: CompressedProof,
         root_state_new: [u8; 32],

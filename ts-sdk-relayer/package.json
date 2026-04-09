@@ -22,7 +22,7 @@
     "bn.js": "^5.2.2"
   },
   "peerDependencies": {
-    "@coral-xyz/anchor": "^0.31.1",
+    "@coral-xyz/anchor": "^0.32.1",
     "@solana/web3.js": "^1.69.0"
   },
   "devDependencies": {

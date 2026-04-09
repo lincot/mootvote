@@ -4,7 +4,7 @@ use zk_relayer::state::RelayerState;
 
 use crate::{error::MootVoteError, events::VoteEvent, state::*, utils::*, vk::VK_VOTE};
 
-const RELAYER_PROGRAM: Pubkey = pubkey!("Re1aDNwUYroFdKmsPDKnZaQPxxKtDBvwNctH1w9ow6j");
+const RELAYER_PROGRAM: Pubkey = pubkey!("Re1ayvvPwJq5NME13UGtyt7X7nC9Zr8PfQdQthquks9");
 
 #[derive(Accounts)]
 pub struct Vote<'info> {
@@ -12,7 +12,7 @@ pub struct Vote<'info> {
     payer: Signer<'info>,
     /// CHECK: the address is checked
     #[account(mut, address = vote_common.poll.fee_destination)]
-    poll_fee_destination: AccountInfo<'info>,
+    poll_fee_destination: UncheckedAccount<'info>,
     vote_common: VoteCommon<'info>,
     system_program: Program<'info, System>,
 }
@@ -179,5 +179,5 @@ pub struct VoteCommon<'info> {
     poll: Account<'info, Poll>,
     /// CHECK: the address is checked
     #[account(mut, address = platform_config.fee_destination)]
-    platform_fee_destination: AccountInfo<'info>,
+    platform_fee_destination: UncheckedAccount<'info>,
 }

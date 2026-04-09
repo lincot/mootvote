@@ -5,13 +5,12 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use futures_util::stream::{self, StreamExt};
 use solana_client::{
     rpc_client::{GetConfirmedSignaturesForAddress2Config, SerializableTransaction},
-    rpc_config::{RpcBlockConfig, RpcTransactionConfig},
+    rpc_config::{CommitmentConfig, RpcBlockConfig, RpcTransactionConfig},
     rpc_request::MAX_GET_CONFIRMED_SIGNATURES_FOR_ADDRESS2_LIMIT,
     rpc_response::RpcConfirmedTransactionStatusWithSignature,
 };
 use solana_sdk::{
-    clock::Slot, commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature,
-    transaction::VersionedTransaction,
+    clock::Slot, pubkey::Pubkey, signature::Signature, transaction::VersionedTransaction,
 };
 use solana_tools::solana_transactor::{RpcPool, TransactorError};
 use solana_transaction_status::{

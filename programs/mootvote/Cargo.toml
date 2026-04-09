@@ -18,10 +18,10 @@ no-log-ix-name = []
 idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
-anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+anchor-lang = { version = "1.0", features = ["init-if-needed"] }
 groth16-solana = "0.2"
-solana-bn254 = "2"
-solana-invoke = "0.4"
-solana-poseidon = "2.3"
-solana-system-interface = "1"
+solana-bn254 = "3"
+solana-invoke = "0.5"
+solana-poseidon = "4"
+solana-system-interface = "2"
 zk-relayer = { path = "../../programs/zk-relayer", features = ["cpi"] }

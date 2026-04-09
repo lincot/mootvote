@@ -2,7 +2,7 @@ use crate::state::*;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-#[instruction(relayer_endpoint_len: u32)]
+#[instruction(relayer: Relayer)]
 pub struct Initialize<'info> {
     #[account(mut)]
     payer: Signer<'info>,
@@ -10,7 +10,7 @@ pub struct Initialize<'info> {
         init,
         space = ZkRelayerConfig::DISCRIMINATOR.len()
             + ZkRelayerConfig::INIT_SPACE
-            + ZkRelayerConfig::added_space(relayer_endpoint_len as usize),
+            + ZkRelayerConfig::added_space(relayer.endpoint.len()),
         payer = payer,
         seeds = [&b"RELAYER_CONFIG"[..]],
         bump,

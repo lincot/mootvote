@@ -1,7 +1,6 @@
+#![expect(clippy::manual_repeat_n)]
+#![expect(clippy::diverging_sub_expression)]
 #![allow(unexpected_cfgs)]
-#![allow(clippy::manual_repeat_n)]
-// fixes `#[program]` warning
-#![allow(deprecated)]
 
 use anchor_lang::prelude::*;
 
@@ -14,7 +13,7 @@ pub mod state;
 mod utils;
 mod vk;
 
-declare_id!("MootG8ueTooVorJJq3kxdXLLg59ZW6phaHpoWeSySqB");
+declare_id!("MootuH214qRLx112xw76ybo1VxwZsQAR539m3Bou6GY");
 
 #[program]
 pub mod mootvote {

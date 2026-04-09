@@ -6,17 +6,15 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-mootvote = "MootG8ueTooVorJJq3kxdXLLg59ZW6phaHpoWeSySqB"
-zk-relayer = "Re1aDNwUYroFdKmsPDKnZaQPxxKtDBvwNctH1w9ow6j"
+mootvote = "MootuH214qRLx112xw76ybo1VxwZsQAR539m3Bou6GY"
+zk_relayer = "Re1ayvvPwJq5NME13UGtyt7X7nC9Zr8PfQdQthquks9"
 
 [programs.devnet]
-mootvote = "MootG8ueTooVorJJq3kxdXLLg59ZW6phaHpoWeSySqB"
-zk-relayer = "Re1aDNwUYroFdKmsPDKnZaQPxxKtDBvwNctH1w9ow6j"
+mootvote = "MootuH214qRLx112xw76ybo1VxwZsQAR539m3Bou6GY"
+zk_relayer = "Re1ayvvPwJq5NME13UGtyt7X7nC9Zr8PfQdQthquks9"
 
 [test.validator]
 url = "https://api.devnet.solana.com"
-warp_slot = 32
-ticks_per_slot = 16
 
 [registry]
 url = "https://api.apr.dev"

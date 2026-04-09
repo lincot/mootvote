@@ -8,9 +8,9 @@ import {
   findPoll,
   findTally,
   finishTally,
+  getVoteEvents,
   initialize,
   type InstructionWithCu,
-  onVote,
   PLATFORM_NAME,
   PROGRAM_ID,
   setProvider,
@@ -288,8 +288,11 @@ describe("MootVote", () => {
       "https://ipfs.io/ipfs/bafkreicvkyr25sgsl2suwl4euwlexamplevyk7vxnai6tti2qexaexaexa";
     const censusUrl =
       "https://ipfs.io/ipfs/bafkreicvkyr25sgsl2suwl4euwlexamplevyk7vxnai6tti2qexaexaexa";
-    const votingStartTime = new BN(Math.floor(Date.now() / 1000) + 1);
-    const votingEndTime = new BN(Math.floor(Date.now() / 1000) + 15);
+    const chainTime =
+      (await connection.getBlockTime(await connection.getSlot()))!;
+    expect(chainTime).to.not.be.null;
+    const votingStartTime = new BN(chainTime - 1);
+    const votingEndTime = new BN(chainTime + 3);
     await sendIx(
       await createPoll({
         payer: payer.publicKey,
@@ -486,25 +489,7 @@ describe("MootVote", () => {
 
       const serializedProof = compressProof(proof);
 
-      const eventPromise: Promise<void> = new Promise((resolve, reject) => {
-        onVote((event) => {
-          try {
-            expect(event.ciphertext).to.deep.equal(
-              ciphertext.map((x) => toBytesBE32(x)),
-            );
-            expect(event.ephPk.x).to.deep.equal(toBytesBE32(ephPk[0]));
-            expect(event.ephPk.y).to.deep.equal(toBytesBE32(ephPk[1]));
-            expect(toBigint(event.nonce)).to.equal(nonce);
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        });
-        setTimeout(() => {
-          reject(new Error("Event did not fire within timeout"));
-        }, 12000);
-      });
-
+      let sig: TransactionSignature;
       if (i == 1) {
         const rootQuotaOld = (await quotaMt.root()).bigInt();
         const rootUniqOld = (await uniqMt.root()).bigInt();
@@ -592,7 +577,7 @@ describe("MootVote", () => {
 
         const serializedRelayerProof = compressProof(relayerProof);
 
-        await sendIx(
+        sig = await sendIx(
           await voteWithRelayer({
             relayer: relayer.publicKey,
             pollId,
@@ -620,7 +605,7 @@ describe("MootVote", () => {
           [relayer],
         );
       } else {
-        await sendIx(
+        sig = await sendIx(
           await vote({
             payer: payer.publicKey,
             pollId,
@@ -640,7 +625,20 @@ describe("MootVote", () => {
           }),
         );
       }
-      await eventPromise;
+
+      const tx = await connection.getTransaction(sig, {
+        maxSupportedTransactionVersion: 0,
+        commitment: "confirmed",
+      });
+      const events = getVoteEvents(tx?.meta?.logMessages!);
+      expect(events).to.not.be.empty;
+      const event = events[0];
+      expect(event.ciphertext).to.deep.equal(
+        ciphertext.map((x) => toBytesBE32(x)),
+      );
+      expect(event.ephPk.x).to.deep.equal(toBytesBE32(ephPk[0]));
+      expect(event.ephPk.y).to.deep.equal(toBytesBE32(ephPk[1]));
+      expect(toBigint(event.nonce)).to.equal(nonce);
       messages.push({
         ephPk,
         nonce,

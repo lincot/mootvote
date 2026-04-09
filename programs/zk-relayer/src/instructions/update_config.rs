@@ -5,7 +5,6 @@ use crate::{
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-#[instruction(relayer_endpoint_len: u32)]
 pub struct UpdateConfig<'info> {
     #[account(mut)]
     payer: Signer<'info>,

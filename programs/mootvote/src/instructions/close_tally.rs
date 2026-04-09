@@ -6,7 +6,7 @@ use anchor_lang::prelude::*;
 pub struct CloseTally<'info> {
     /// CHECK: it's the tally owner
     #[account(mut)]
-    owner: AccountInfo<'info>,
+    owner: UncheckedAccount<'info>,
     #[account(
         mut,
         close = owner,

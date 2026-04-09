@@ -14,7 +14,7 @@ const MAX_POLL_DURATION: u64 = 365 * 24 * 60 * 60;
 const N_RELAYERS: u64 = 1;
 
 #[derive(Accounts)]
-#[instruction(poll_id: u64, n_choices: u8, description_url: String, census_url_len: u32)]
+#[instruction(poll_id: u64, n_choices: u8, description_url: String, census_url: String)]
 pub struct CreatePoll<'info> {
     #[account(mut)]
     payer: Signer<'info>,
@@ -23,7 +23,7 @@ pub struct CreatePoll<'info> {
         init,
         space = Poll::DISCRIMINATOR.len()
             + Poll::INIT_SPACE
-            + Poll::added_space(n_choices, description_url.len(), census_url_len as usize),
+            + Poll::added_space(n_choices, description_url.len(), census_url.len()),
         payer = payer,
         seeds = [&b"POLL"[..], &poll_id.to_le_bytes()],
         bump,
@@ -32,10 +32,10 @@ pub struct CreatePoll<'info> {
     relayer_config: Account<'info, ZkRelayerConfig>,
     /// CHECK: checked in CPI
     #[account(mut)]
-    relayer_state: AccountInfo<'info>,
+    relayer_state: UncheckedAccount<'info>,
     /// CHECK: it's an empty signer account
     #[account(seeds = [b"ZK_RELAYER_SIGNER"], bump)]
-    program_signer: AccountInfo<'info>,
+    program_signer: UncheckedAccount<'info>,
     zk_relayer_program: Program<'info, ZkRelayer>,
     system_program: Program<'info, System>,
 }
@@ -92,7 +92,7 @@ pub fn create_poll(
 
     create_relayer_state(
         CpiContext::new_with_signer(
-            zk_relayer_program.to_account_info(),
+            zk_relayer_program.key(),
             CreateRelayerState {
                 payer: payer.to_account_info(),
                 relayer_config: relayer_config.to_account_info(),

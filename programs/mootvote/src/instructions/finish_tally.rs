@@ -14,7 +14,7 @@ const MAX_CHOICES: usize = 8;
 pub struct FinishTally<'info> {
     /// CHECK: it only receives funds
     #[account(mut)]
-    payer: AccountInfo<'info>,
+    payer: UncheckedAccount<'info>,
     #[account(mut, close = payer)]
     tally: Account<'info, Tally>,
     #[account(mut)]

@@ -6,7 +6,7 @@ use crate::{error::MootVoteError, state::*, utils::transfer};
 pub struct WithdrawPoll<'info> {
     /// CHECK: checked using has_one
     #[account(mut)]
-    fee_destination: AccountInfo<'info>,
+    fee_destination: UncheckedAccount<'info>,
     #[account(mut, has_one = fee_destination)]
     poll: Account<'info, Poll>,
 }
