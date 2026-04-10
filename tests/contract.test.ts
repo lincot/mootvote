@@ -653,7 +653,7 @@ describe("MootVote", () => {
 
   const MAX_BATCH = 6;
   const LIMBS = 4;
-  const MAX_CHOICES = 8;
+  const MAX_CHOICES = 11;
 
   it("tally", async () => {
     const db = new InMemoryDB(new Uint8Array());

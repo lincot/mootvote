@@ -8,7 +8,7 @@ use crate::{
     utils::{poseidon, u64_to_u256_be},
 };
 
-const MAX_CHOICES: usize = 8;
+const MAX_CHOICES: usize = 11;
 
 #[derive(Accounts)]
 pub struct FinishTally<'info> {

@@ -8,7 +8,7 @@
   "Tally": {
     "file": "Tally",
     "template": "Tally",
-    "params": [64, 8, 6],
+    "params": [64, 11, 6],
     "pubs": ["rootOld", "cumulativeMsgHashOld"]
   },
   "Relay": {

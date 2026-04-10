@@ -9,7 +9,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{error, info};
 
 const MAX_TITLE_LEN: usize = 100;
-const MAX_CHOICES: usize = 8;
+const MAX_CHOICES: usize = 11;
 const MAX_CHOICE_LEN: usize = 100;
 
 #[derive(Debug, Clone)]

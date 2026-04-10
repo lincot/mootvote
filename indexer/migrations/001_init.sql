@@ -20,7 +20,7 @@ CREATE TABLE polls (
   expected_n_voters          BIGINT NOT NULL,
   description_invalid_reason TEXT
 
-  CONSTRAINT choices_count CHECK (array_length(choices, 1) BETWEEN 1 AND 8)
+  CONSTRAINT choices_count CHECK (array_length(choices, 1) BETWEEN 1 AND 11)
 );
 
 CREATE TABLE votes (
