@@ -112,7 +112,6 @@ impl CensusManager {
         let mut batch: Vec<[u8; 32]> = Vec::with_capacity(10_000);
         let mut total: u64 = 0;
 
-        // TODO does stream honor timeout?
         while let Some(chunk) = stream.next().await {
             let chunk = chunk?;
             buf.extend_from_slice(&chunk);

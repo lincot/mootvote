@@ -103,7 +103,6 @@ impl DescriptionManager {
 
         let mut body = BytesMut::new();
         let mut stream = resp.bytes_stream();
-        // TODO does stream honor timeout?
         while let Some(chunk) = stream.next().await {
             let chunk = chunk?;
             if body.len() + chunk.len() > BYTES_LIMIT {
