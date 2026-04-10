@@ -355,33 +355,39 @@ export const PollCreatePage: React.FC<{}> = () => {
             </p>
           )}
 
-          <label className="block text-sm font-medium">
-            {t("poll_creation.start")}
-          </label>
-          <input
-            type="datetime-local"
-            className={INPUT_CN}
-            {...register("start")}
-          />
-          {errors.start?.message && (
-            <p className="text-red-500 text-xs">
-              {t("poll_creation.form_error." + errors.start.message)}
-            </p>
-          )}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium">
+                {t("poll_creation.start")}
+              </label>
+              <input
+                type="datetime-local"
+                className={INPUT_CN}
+                {...register("start")}
+              />
+              {errors.start?.message && (
+                <p className="text-red-500 text-xs">
+                  {t("poll_creation.form_error." + errors.start.message)}
+                </p>
+              )}
+            </div>
 
-          <label className="block text-sm font-medium">
-            {t("poll_creation.end")}
-          </label>
-          <input
-            type="datetime-local"
-            className={INPUT_CN}
-            {...register("end")}
-          />
-          {errors.end?.message && (
-            <p className="text-red-500 text-xs">
-              {t("poll_creation.form_error." + errors.end.message)}
-            </p>
-          )}
+            <div className="flex-1">
+              <label className="block text-sm font-medium">
+                {t("poll_creation.end")}
+              </label>
+              <input
+                type="datetime-local"
+                className={INPUT_CN}
+                {...register("end")}
+              />
+              {errors.end?.message && (
+                <p className="text-red-500 text-xs">
+                  {t("poll_creation.form_error." + errors.end.message)}
+                </p>
+              )}
+            </div>
+          </div>
 
           <div className="space-y-2">
             <label className="block text-sm font-medium">
