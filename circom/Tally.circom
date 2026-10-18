@@ -153,8 +153,11 @@ template TallySingle(DEPTH, MAX_CHOICES) {
     // Num2Bits_strict in SMTVerifier asserts that nuLo is DEPTH bits wide.
     nu === nuLo + nuHi * (1 << DEPTH);
 
-    // If leaf was empty, old choice should be 0.
+    // If leaf was empty, old choice should be 0
+    // and old revoting key should be Poseidon(0).
     wasLeafEmpty * choiceOld === 0;
+    signal hash0 <== PoseidonHasher(1)([0]);
+    wasLeafEmpty * (revotingKeyOld - hash0) === 0;
 
     SMTVerifier(DEPTH)(
         enabled <== enabled,
