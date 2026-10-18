@@ -3,3 +3,16 @@ packages:
   - 'ts-sdk-relayer'
   - 'frontend'
   - 'smt-circom'
+allowBuilds:
+  '@swc/core': false
+  '@tailwindcss/oxide': false
+  bigint-buffer: false
+  blake-hash: false
+  bufferutil: false
+  esbuild: false
+  keccak: false
+  protobufjs: false
+  secp256k1: false
+  tiny-secp256k1: false
+  usb: false
+  utf-8-validate: false
