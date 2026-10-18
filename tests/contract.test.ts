@@ -384,8 +384,9 @@ describe("MootVote", () => {
         F.toObject(sharedKeyRaw[1]),
       ];
 
-      // normal votes, then key change, then a valid vote with new key, then an invalid vote
-      const revotingKeyOld = i == batchLen - 2 && batchLen > 2
+      // an invalid first vote, normal votes, then key change,
+      // then a valid vote with new key, then an invalid vote
+      const revotingKeyOld = i == 0 || i == batchLen - 2 && batchLen > 2
         ? prvRevoting
         : 0n;
       const revotingKeyNew = i == batchLen - 3 && batchLen > 2
@@ -717,7 +718,8 @@ describe("MootVote", () => {
         }
       } else {
         proof = await mt.generateCircomVerifierProof(idx, ZERO_HASH);
-        wasLeafEmpty.push(0n);
+        proof.isOld0 = proof.fnc == 1 && proof.oldValue.bigInt() == 0n;
+        wasLeafEmpty.push(mtMap.has(idx) ? 0n : 1n);
       }
 
       noAux.push(BigInt(proof.isOld0));

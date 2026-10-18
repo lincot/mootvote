@@ -268,7 +268,8 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           if (choice !== 0n) tallyCounts[Number(choice) - 1] += 1n;
         } else {
           proof = await mt.generateCircomVerifierProof(idx, ZERO_HASH);
-          wasLeafEmpty.push(0n);
+          proof.isOld0 = proof.fnc == 1 && proof.oldValue.bigInt() == 0n;
+          wasLeafEmpty.push(leafOld ? 0n : 1n);
         }
 
         noAux.push(BigInt(proof.isOld0));
