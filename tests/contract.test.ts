@@ -232,7 +232,8 @@ describe("MootVote", () => {
   let tallierSk: bigint;
   let PKx: Uint8Array;
   let PKy: Uint8Array;
-  const nChoices = 6;
+  const MAX_CHOICES = 11;
+  const nChoices = MAX_CHOICES;
 
   test("initialize", async () => {
     const fee = 789789n;
@@ -294,8 +295,8 @@ describe("MootVote", () => {
     expect(chainTime).to.not.be.null;
     const votingStartTime = new BN(chainTime - 1);
     const votingEndTime = new BN(chainTime + 3);
-    await sendIx(
-      await createPoll({
+    const create = (nChoices: number) =>
+      createPoll({
         payer: payer.publicKey,
         id: pollId,
         censusRoot: toBytesBE32(censusRoot),
@@ -308,8 +309,14 @@ describe("MootVote", () => {
         nVoters: BigInt(N_VOTERS),
         descriptionUrl,
         censusUrl,
-      }),
+      });
+    await expect(sendIx(await create(0))).to.be.rejectedWith(
+      "RequireGtViolated",
     );
+    await expect(sendIx(await create(MAX_CHOICES + 1))).to.be.rejectedWith(
+      "RequireGteViolated",
+    );
+    await sendIx(await create(nChoices));
 
     const poll = await fetchPoll(connection, findPoll(pollId));
     if (!poll) throw new Error("Poll not initialized");
@@ -643,7 +650,6 @@ describe("MootVote", () => {
 
   const MAX_BATCH = 6;
   const LIMBS = 4;
-  const MAX_CHOICES = 11;
 
   it("tally", async () => {
     const db = new InMemoryDB(new Uint8Array());

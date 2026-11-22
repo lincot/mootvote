@@ -35,6 +35,8 @@ pub struct Poll {
 }
 
 impl Poll {
+    pub(crate) const MAX_CHOICES: usize = 11;
+
     pub const fn added_space(
         n_choices: u8,
         description_url_len: usize,

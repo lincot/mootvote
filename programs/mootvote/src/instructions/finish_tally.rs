@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use core::iter::repeat;
 
 use crate::{
     error::*,
@@ -7,8 +6,6 @@ use crate::{
     state::*,
     utils::{poseidon, u64_to_u256_be},
 };
-
-const MAX_CHOICES: usize = 11;
 
 #[derive(Accounts)]
 pub struct FinishTally<'info> {
@@ -34,7 +31,7 @@ pub fn finish_tally(ctx: Context<FinishTally>, tally: Vec<u64>, tally_salt: u64)
     require!(now > poll.voting_end_time, MootVoteError::BadTime);
 
     require!(
-        tally.len() == poll.n_choices as usize,
+        tally.len() == usize::from(poll.n_choices),
         MootVoteError::IncorrectTally
     );
 
@@ -48,12 +45,12 @@ pub fn finish_tally(ctx: Context<FinishTally>, tally: Vec<u64>, tally_salt: u64)
         }
     }
 
-    let mut preimage = Vec::with_capacity(tally.len() + 1);
+    let mut preimage = Vec::with_capacity(Poll::MAX_CHOICES + 1);
     let tally_salt = u64_to_u256_be(tally_salt);
     preimage.push(&tally_salt[..]);
     let raw_tally_u128: Vec<_> = tally.iter().copied().map(u64_to_u256_be).collect();
     preimage.extend(raw_tally_u128.iter().map(|x| x.as_slice()));
-    preimage.extend(repeat(&[0; 32][..]).take(MAX_CHOICES - poll.n_choices as usize));
+    preimage.resize(Poll::MAX_CHOICES + 1, &[0; 32]);
     require!(
         poseidon(&preimage).map_err(|_| MootVoteError::Poseidon)? == tally_acc.tally_hash,
         MootVoteError::IncorrectTally

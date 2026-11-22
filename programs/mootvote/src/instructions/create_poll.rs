@@ -65,6 +65,7 @@ pub fn create_poll(
     let zk_relayer_program = &ctx.accounts.zk_relayer_program;
 
     require_gt!(n_choices, 0);
+    require_gte!(Poll::MAX_CHOICES, usize::from(n_choices));
 
     require!(
         voting_end_time > voting_start_time

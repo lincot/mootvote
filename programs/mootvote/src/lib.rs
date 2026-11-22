@@ -1,4 +1,3 @@
-#![expect(clippy::manual_repeat_n)]
 #![expect(clippy::diverging_sub_expression)]
 #![allow(unexpected_cfgs)]
 
