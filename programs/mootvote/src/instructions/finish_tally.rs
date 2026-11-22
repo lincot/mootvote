@@ -37,6 +37,11 @@ pub fn finish_tally(ctx: Context<FinishTally>, tally: Vec<u64>, tally_salt: u64)
         tally_acc.cumulative_msg_hash == poll.cumulative_msg_hash,
         MootVoteError::IncorrectTally
     );
+    if poll.cumulative_msg_hash == [0; 32] {
+        for &count in &tally {
+            require_eq!(count, 0, MootVoteError::IncorrectTally);
+        }
+    }
 
     let mut preimage = Vec::with_capacity(tally.len() + 1);
     let tally_salt = u64_to_u256_be(tally_salt);

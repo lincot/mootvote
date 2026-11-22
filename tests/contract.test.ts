@@ -895,6 +895,44 @@ describe("MootVote", () => {
     expect(poll.tally.map(toBigint)).to.deep.equal(tally.slice(0, nChoices));
   });
 
+  test("an empty poll finalizes only with zero counts", async () => {
+    const emptyPollId = pollId + 1n;
+    const accounts = { pollId: emptyPollId, payer: payer.publicKey };
+    const [x, y] = voters[0].pub.map((c) => toBytesBE32(F.toObject(c)));
+    await sendIx(
+      await createPoll({
+        payer: payer.publicKey,
+        id: emptyPollId,
+        nChoices: 2,
+        tallierKey: { x, y },
+        censusRoot: toBytesBE32(censusRoot),
+        nVoters: BigInt(N_VOTERS),
+        votingStartTime: 0n,
+        votingEndTime: 1n,
+        descriptionUrl: "",
+        censusUrl: "",
+        fee: 0n,
+        feeDestination: pollFeeDestination.publicKey,
+      }),
+    );
+    await sendIx(
+      await createTally({
+        ...accounts,
+        initialTallyHash: toBytesBE32(
+          F.toObject(poseidon(Array(MAX_CHOICES + 1).fill(0n))),
+        ),
+      }),
+    );
+
+    const finish = async (tally: bigint[]) =>
+      sendIx(await finishTally({ ...accounts, tally, tallySalt: 0n }));
+
+    await expect(finish([0n, 1n])).to.be.rejectedWith("IncorrectTally");
+    await finish([0n, 0n]);
+    const poll = await fetchPoll(connection, findPoll(emptyPollId));
+    expect(poll?.tally.map(toBigint)).to.deep.equal([0n, 0n]);
+  });
+
   test("withdrawPoll", async () => {
     await sendIx(
       await withdrawPoll({
