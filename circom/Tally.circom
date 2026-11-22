@@ -148,11 +148,6 @@ template TallySingle(DEPTH, MAX_CHOICES) {
     signal revotingKeyMatches <== IsEqual()([revotingKeyOldFromMsg, revotingKeyOld]);
     signal {binary} isVoteValid <== enabled * revotingKeyMatches;
 
-    signal nuLo <-- nu & ((1 << DEPTH) - 1);
-    signal nuHi <-- nu >> DEPTH;
-    // Num2Bits_strict in SMTVerifier asserts that nuLo is DEPTH bits wide.
-    nu === nuLo + nuHi * (1 << DEPTH);
-
     // If leaf was empty, old choice should be 0
     // and old revoting key should be Poseidon(0).
     wasLeafEmpty * choiceOld === 0;
@@ -166,7 +161,7 @@ template TallySingle(DEPTH, MAX_CHOICES) {
         oldKey <== auxKey,
         oldValue <== auxValue,
         isOld0 <== noAux,
-        key <== nuLo,
+        key <== nu,
         value <== leafOld,
         fnc <== wasLeafEmpty
     );
@@ -177,7 +172,7 @@ template TallySingle(DEPTH, MAX_CHOICES) {
         oldKey <== auxKey,
         oldValue <== auxValue,
         isOld0 <== noAux,
-        newKey <== nuLo,
+        newKey <== nu,
         newValue <== leafNew,
         // (1, 0) -> insert, (0, 1) -> update, (0, 0) -> no-op
         fnc <== [

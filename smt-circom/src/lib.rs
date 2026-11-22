@@ -36,6 +36,8 @@ fn mid_key(l: [u8; 32], r: [u8; 32]) -> [u8; 32] {
 pub enum Error<E> {
     #[error("The key is already present")]
     AlreadyPresent,
+    #[error("Keys share a path through the maximum tree depth")]
+    MaxDepth,
     #[error("Key wasn't found")]
     KeyNotFound,
     #[error("Store error: {0}")]
@@ -172,6 +174,10 @@ impl<const D: usize, S: NodeStore> SparseMerkleTree<D, S> {
                     unreachable!();
                 }
                 let path_old = get_path::<D>(&old_k);
+                // Circom requires the last sibling to be zero, so it cannot be a branch.
+                if path_new[..D.saturating_sub(1)] == path_old[..D.saturating_sub(1)] {
+                    return Err(Error::MaxDepth);
+                }
                 self.push_leaf(
                     new_leaf,
                     Node::Leaf { k: old_k, v: old_v },
@@ -370,6 +376,28 @@ mod tests {
     use crate::store::MemStore;
 
     const DEPTH: usize = 64;
+
+    #[test]
+    fn full_keys_at_max_depth() {
+        let mut tree = SparseMerkleTree::<DEPTH, _>::new(MemStore::new()).unwrap();
+        let mut key = [0; 32];
+        key[10] = 1;
+        tree.add(key, [1; 32]).unwrap();
+
+        let mut neighbor = key;
+        neighbor[24] = 0x40; // Last branchable bit at depth 64.
+        tree.add(neighbor, [2; 32]).unwrap();
+        let root = tree.root().unwrap();
+        for byte in [10, 24] {
+            let mut collision = key;
+            collision[byte] ^= 0x80;
+            assert!(matches!(tree.add(collision, [3; 32]), Err(Error::MaxDepth)));
+            assert!(!tree.get_proof(collision).unwrap().membership);
+            assert_eq!(tree.root().unwrap(), root);
+        }
+        assert_eq!(tree.get_proof(key).unwrap().get_leaf(), Some(&[1; 32]));
+        assert_eq!(tree.get_proof(neighbor).unwrap().get_leaf(), Some(&[2; 32]));
+    }
 
     #[test]
     fn test_smt() {

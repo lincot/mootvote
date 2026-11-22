@@ -37,11 +37,6 @@ template Relay(DEPTH) {
     signal isWithinQuota <== LessThan(16)([countOld, msgLimit]);
     isWithinQuota === 1;
 
-    signal nuLo <-- nu & ((1 << DEPTH) - 1);
-    signal nuHi <-- nu >> DEPTH;
-    // Num2Bits_strict in SMTVerifier asserts that nuLo is DEPTH bits wide.
-    nu === nuLo + nuHi * (1 << DEPTH);
-
     signal isOldEmpty <== IsZero()(countOld);
 
     SMTVerifier(DEPTH)(
@@ -51,7 +46,7 @@ template Relay(DEPTH) {
         oldKey <== auxKeyQuota,
         oldValue <== auxValueQuota,
         isOld0 <== noAuxQuota,
-        key <== nuLo,
+        key <== nu,
         value <== countOld,
         fnc <== isOldEmpty
     );
@@ -62,7 +57,7 @@ template Relay(DEPTH) {
         oldKey <== auxKeyQuota,
         oldValue <== auxValueQuota,
         isOld0 <== noAuxQuota,
-        newKey <== nuLo,
+        newKey <== nu,
         newValue <== countOld + 1,
         // (1, 0) -> insert, (0, 1) -> update, (0, 0) -> no-op
         fnc <== [isOldEmpty, 1 - isOldEmpty]

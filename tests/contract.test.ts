@@ -486,23 +486,21 @@ describe("MootVote", () => {
         const rootQuotaOld = (await quotaMt.root()).bigInt();
         const rootUniqOld = (await uniqMt.root()).bigInt();
 
-        const idx = relayerNu & ((1n << BigInt(STATE_DEPTH)) - 1n);
-
-        const coundOld = quotaMtMap.get(idx) ?? 0;
-        quotaMtMap.set(idx, coundOld + 1);
+        const countOld = quotaMtMap.get(relayerNu) ?? 0;
+        quotaMtMap.set(relayerNu, countOld + 1);
 
         let proofQuota: CircomProcessorProof | CircomVerifierProof;
         try {
           proofQuota = await quotaMt.addAndGetCircomProof(
-            idx,
-            BigInt(coundOld + 1),
+            relayerNu,
+            BigInt(countOld + 1),
           );
         } catch (e) {
           if (e != ErrEntryIndexAlreadyExists) {
             throw e;
           }
 
-          proofQuota = await quotaMt.update(idx, BigInt(coundOld + 1));
+          proofQuota = await quotaMt.update(relayerNu, BigInt(countOld + 1));
         }
 
         const proofUniq = await uniqMt.addAndGetCircomProof(MsgHash_pub, 1n);
@@ -520,7 +518,7 @@ describe("MootVote", () => {
           msgHash: msgHashJs,
           msgLimit,
           nu: relayerNu,
-          countOld: BigInt(coundOld),
+          countOld: BigInt(countOld),
           siblingsQuota,
           noAuxQuota: BigInt(proofQuota.isOld0),
           auxKeyQuota: proofQuota.oldKey.bigInt(),
@@ -686,31 +684,29 @@ describe("MootVote", () => {
         LIMBS,
       );
 
-      const idx = nu & ((1n << BigInt(STATE_DEPTH)) - 1n);
-
-      const prevLeaf = mtMap.get(idx) ?? { choice: 0n, revotingKey: HASH0 };
+      const prevLeaf = mtMap.get(nu) ?? { choice: 0n, revotingKey: HASH0 };
       const voteIsValid = prevLeaf.revotingKey == revotingKeyOldFromMsg;
       if (voteIsValid) {
-        mtMap.set(idx, { choice, revotingKey: revotingKeyNew });
+        mtMap.set(nu, { choice, revotingKey: revotingKeyNew });
       }
       const leaf = F.toObject(poseidon([choice, revotingKeyNew]));
       let proof: CircomProcessorProof | CircomVerifierProof;
       if (voteIsValid) {
         try {
-          proof = await mt.addAndGetCircomProof(idx, leaf);
+          proof = await mt.addAndGetCircomProof(nu, leaf);
           wasLeafEmpty.push(1n);
         } catch (e) {
           if (e != ErrEntryIndexAlreadyExists) {
             throw e;
           }
 
-          proof = await mt.update(idx, leaf);
+          proof = await mt.update(nu, leaf);
           wasLeafEmpty.push(0n);
         }
       } else {
-        proof = await mt.generateCircomVerifierProof(idx, ZERO_HASH);
+        proof = await mt.generateCircomVerifierProof(nu, ZERO_HASH);
         proof.isOld0 = proof.fnc == 1 && proof.oldValue.bigInt() == 0n;
-        wasLeafEmpty.push(mtMap.has(idx) ? 0n : 1n);
+        wasLeafEmpty.push(mtMap.has(nu) ? 0n : 1n);
       }
 
       noAux.push(BigInt(proof.isOld0));

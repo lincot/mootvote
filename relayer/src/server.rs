@@ -26,7 +26,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, warn};
 
 use crate::{
-    prover::{compress_proof, prove_relay, RelayInputs, RelayPublicInputs, STATE_DEPTH},
+    prover::{compress_proof, prove_relay, RelayInputs, RelayPublicInputs},
     rocks::{StateKey, StateStore},
 };
 
@@ -34,9 +34,13 @@ use crate::{
 
 const MSG_LIMIT: u64 = 3; // const for now
 const RELAY_CU: u32 = 200_000;
+const FIELD_MODULUS: [u8; 32] = ruint::uint!(
+    21888242871839275222246405745257275088548364400416034343698204186575808495617_U256
+)
+.to_be_bytes();
 
 /// Relayer config PDA. Address derivation is tested below.
-const RELAYER_CONFIG: Pubkey = pubkey!("HdeFrMkEy82nL3F9udVPtu4uPshdU3EaAKNgSYH7yS7n");
+const RELAYER_CONFIG: Pubkey = pubkey!("DNaL3wa5uBhCPmzrkbdCRJRk8b1Lbguqtp1eFCAcs7kW");
 
 #[derive(Clone)]
 struct AppState {
@@ -132,6 +136,8 @@ struct RelayResponse {
 
 #[derive(Debug, Error)]
 enum RelayError {
+    #[error("Nullifier and message hash must be canonical BN254 field elements")]
+    InvalidFieldElement,
     #[error("The message has already been processed")]
     MessageDuplicated,
     #[error("Relayer message limit exceeded")]
@@ -149,6 +155,9 @@ enum RelayError {
 }
 
 async fn relay_inner(app: &AppState, req: RelayRequest) -> Result<RelayResponse, RelayError> {
+    if req.nu >= FIELD_MODULUS || req.msg_hash >= FIELD_MODULUS {
+        return Err(RelayError::InvalidFieldElement);
+    }
     let skey = StateKey {
         program: req.target_program,
         state_id: req.state_id,
@@ -163,19 +172,13 @@ async fn relay_inner(app: &AppState, req: RelayRequest) -> Result<RelayResponse,
     let batch = RefCell::new(WriteBatch::new());
     let mut state = app.store.load_state(&skey, &batch)?;
 
-    const {
-        assert!(STATE_DEPTH.is_multiple_of(8));
-    }
-    let mut idx = req.nu;
-    idx[..32 - STATE_DEPTH / 8].fill(0);
-
     let CircomProof {
         siblings: siblings_quota,
         is_old0: no_aux_quota,
         old_key: aux_key_quota,
         old_value: aux_value_quota,
         membership: membership_quota,
-    } = state.quota_tree.get_proof(idx)?;
+    } = state.quota_tree.get_proof(req.nu)?;
     let CircomProof {
         siblings: siblings_uniq,
         is_old0: no_aux_uniq,
@@ -217,6 +220,14 @@ async fn relay_inner(app: &AppState, req: RelayRequest) -> Result<RelayResponse,
         auxKeyUniq: aux_key_uniq,
         auxValueUniq: aux_value_uniq,
     };
+
+    let new_count = u64_to_u256_be(prev_count + 1);
+    if membership_quota {
+        state.quota_tree.update(req.nu, new_count)?;
+    } else {
+        state.quota_tree.add(req.nu, new_count)?;
+    }
+    state.uniq_tree.add(req.msg_hash, one_be())?;
 
     let circom = prove_relay(&inputs).map_err(RelayError::Prover)?;
     let proof = compress_proof(circom.proof);
@@ -276,13 +287,6 @@ async fn relay_inner(app: &AppState, req: RelayRequest) -> Result<RelayResponse,
         tx_result.status?;
     }
 
-    let new_count = u64_to_u256_be(prev_count + 1);
-    if prev_count == 0 {
-        state.quota_tree.add(idx, new_count)?;
-    } else {
-        state.quota_tree.update(idx, new_count)?;
-    }
-    state.uniq_tree.add(req.msg_hash, one_be())?;
     app.store.db.write(batch.take())?;
 
     Ok(RelayResponse {

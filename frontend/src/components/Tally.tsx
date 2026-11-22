@@ -237,8 +237,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           revotingKeyNew,
         ] = plain;
 
-        const idx = nu & ((1n << BigInt(STATE_DEPTH)) - 1n);
-        const leafOld = leavesMap[idx.toString()];
+        const leafOld = leavesMap[nu.toString()];
         let choiceOld = 0n;
         let revotingOld = HASH0;
         if (leafOld) {
@@ -252,14 +251,14 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         if (voteIsValid) {
           const leaf = F.toObject(poseidon([choice, revotingKeyNew]));
           try {
-            proof = await mt.addAndGetCircomProof(idx, leaf);
+            proof = await mt.addAndGetCircomProof(nu, leaf);
             wasLeafEmpty.push(1n);
           } catch (e) {
             if (e !== ErrEntryIndexAlreadyExists) throw e;
-            proof = await mt.update(idx, leaf);
+            proof = await mt.update(nu, leaf);
             wasLeafEmpty.push(0n);
           }
-          leavesMap[idx.toString()] = {
+          leavesMap[nu.toString()] = {
             choice,
             revotingKey: revotingKeyNew,
             hash: leaf,
@@ -267,7 +266,7 @@ export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
           if (choiceOld !== 0n) tallyCounts[Number(choiceOld) - 1] -= 1n;
           if (choice !== 0n) tallyCounts[Number(choice) - 1] += 1n;
         } else {
-          proof = await mt.generateCircomVerifierProof(idx, ZERO_HASH);
+          proof = await mt.generateCircomVerifierProof(nu, ZERO_HASH);
           proof.isOld0 = proof.fnc == 1 && proof.oldValue.bigInt() == 0n;
           wasLeafEmpty.push(leafOld ? 0n : 1n);
         }
