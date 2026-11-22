@@ -4,9 +4,8 @@ use anchor_lang::prelude::*;
 #[derive(Accounts)]
 #[instruction(poll_id: u64)]
 pub struct CloseTally<'info> {
-    /// CHECK: it's the tally owner
     #[account(mut)]
-    owner: UncheckedAccount<'info>,
+    owner: Signer<'info>,
     #[account(
         mut,
         close = owner,
