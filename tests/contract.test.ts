@@ -878,6 +878,9 @@ describe("MootVote", () => {
       }),
     )).to.rejectedWith("IncorrectTally");
 
+    const tallyAddress = findTally(pollId, payer.publicKey);
+    const rent = await connection.getBalance(tallyAddress);
+    const payerBalance = await connection.getBalance(payer.publicKey);
     await sendIx(
       await finishTally({
         pollId,
@@ -885,10 +888,13 @@ describe("MootVote", () => {
         tally: tally.slice(0, nChoices),
         tallySalt: tallySaltNew,
       }),
+      [relayer],
     );
 
-    expect(await fetchTally(connection, findTally(pollId, payer.publicKey))).to
-      .be.null;
+    expect(await connection.getBalance(payer.publicKey)).to.equal(
+      payerBalance + rent,
+    );
+    expect(await fetchTally(connection, tallyAddress)).to.be.null;
 
     const poll = await fetchPoll(connection, findPoll(pollId));
     if (!poll) throw new Error("Poll not initialized");

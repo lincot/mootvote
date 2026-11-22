@@ -12,10 +12,15 @@ const MAX_CHOICES: usize = 11;
 
 #[derive(Accounts)]
 pub struct FinishTally<'info> {
-    /// CHECK: it only receives funds
+    /// CHECK: it's the original payer
     #[account(mut)]
     payer: UncheckedAccount<'info>,
-    #[account(mut, close = payer)]
+    #[account(
+        mut,
+        close = payer,
+        seeds = [&b"TALLY"[..], &poll.id.to_le_bytes(), &payer.key.to_bytes()],
+        bump,
+    )]
     tally: Account<'info, Tally>,
     #[account(mut)]
     poll: Account<'info, Poll>,
