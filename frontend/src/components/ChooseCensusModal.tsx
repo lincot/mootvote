@@ -41,7 +41,7 @@ export const ChooseCensusModal: React.FC<{
       setErr("");
       const acct = KR.accounts[KR.active];
       if (!acct) return;
-      const sig = await makeAuthSig(acct.prv, acct.pub);
+      const sig = await makeAuthSig(acct);
       const r = await fetch(
         `${CENSUS_URL}/censuses?creator_only=true${
           cursor ? `&before=${cursor}` : ""

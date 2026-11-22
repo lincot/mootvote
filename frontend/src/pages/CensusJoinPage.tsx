@@ -47,7 +47,7 @@ export default function CensusJoinPage() {
       setErr("");
       setStage(t("census_join.stage.signing"));
       const acct = KR.accounts[KR.active];
-      const sig = await makeAuthSig(acct.prv, acct.pub);
+      const sig = await makeAuthSig(acct);
       setStage(t("census_join.stage.submitting"));
       const r = await fetch(
         `${CENSUS_URL}/census/${cid}/members/${pf!.member_id}/claim`,

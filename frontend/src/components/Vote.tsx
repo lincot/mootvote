@@ -15,7 +15,7 @@ import {
 import { fetchRelayerConfig } from "@lincot/zk-relayer-sdk";
 import { getMerkleProof } from "../../../helpers/merkletree.ts";
 import { compressProof } from "../../../helpers/compressSolana.ts";
-import { getBabyjub, getEddsa, getPoseidon } from "../circomMemo.ts";
+import { getBabyjub, getPoseidon } from "../circomMemo.ts";
 import { CLUSTER, RELAYER_URL, RPC_URL } from "../env.tsx";
 import type { PollDetail } from "../poll.ts";
 import { idForAccount, useKeyringCtx, useRevoKeysCtx } from "../keyring.tsx";
@@ -102,7 +102,6 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       if (selected == null) throw new Error("Select a choice");
 
       setStage("prepare");
-      const eddsa = await getEddsa();
       const babyjub = await getBabyjub();
       const poseidon = await getPoseidon();
       const F = poseidon.F;
@@ -110,7 +109,6 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const a = KR.accounts[KR.active] ?? KR.accounts[0];
       if (!a) throw new Error("No active ZK account");
       const accountId = idForAccount(a);
-      const prv = a.prv;
       const pub: [bigint, bigint] = a.pub;
 
       const pollIdBig = BigInt(poll.poll_id);
@@ -159,20 +157,8 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         found,
       );
 
-      const M_N = poseidon([PLATFORM_NAME, pollId]);
-      const sigN = eddsa.signPoseidon(prv, M_N);
-      const sigR: [bigint, bigint] = [
-        F.toObject(sigN.R8[0]),
-        F.toObject(sigN.R8[1]),
-      ];
-      const sigS = sigN.S;
-      const sigHash = F.toObject(
-        poseidon([
-          sigS,
-          sigR[0],
-          sigR[1],
-        ]),
-      );
+      const scope = F.toObject(poseidon([PLATFORM_NAME, pollId]));
+      const { seed, ...vrfProof } = await a.evaluateVrf(scope);
 
       const ephSk = randomScalar(babyjub.subOrder);
       const ephPkRaw = babyjub.mulPointEscalar(babyjub.Base8, ephSk);
@@ -193,7 +179,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
       const revotingKeyOld = oldSec;
       const revotingKeyNew = newSec;
 
-      const nuTallier = F.toObject(poseidon([sigHash]));
+      const nuTallier = F.toObject(poseidon([seed]));
       const P = [
         nuTallier,
         choice,
@@ -219,7 +205,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         const relayerIdBuf = relayerConfig.relayer.feeKey.toBuffer();
         relayerIdBuf[0] &= (1 << 5) - 1;
         relayerId = BigInt("0x" + relayerIdBuf.toString("hex"));
-        relayerNu = F.toObject(poseidon([sigHash, relayerId]));
+        relayerNu = F.toObject(poseidon([seed, relayerId]));
       }
 
       setStage("proof");
@@ -230,8 +216,7 @@ export const Vote: React.FC<{ poll: PollDetail }> = ({ poll }) => {
         revotingKeyNew,
         revotingKeyOld,
         voterPk: pub,
-        sigR,
-        sigS,
+        ...vrfProof,
         path,
         pathPos,
         choice,

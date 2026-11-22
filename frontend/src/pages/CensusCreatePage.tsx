@@ -73,7 +73,7 @@ export default function CensusCreatePage() {
         throw new Error("Unlock ZK Accounts and select an account");
       }
 
-      const sig = await makeAuthSig(acct.prv, acct.pub);
+      const sig = await makeAuthSig(acct);
       setStage("send");
       const body = {
         title: data.title.trim(),

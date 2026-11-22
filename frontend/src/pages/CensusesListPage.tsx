@@ -52,7 +52,7 @@ export default function CensusesListPage() {
         return;
       }
 
-      const sig = await makeAuthSig(acct.prv, acct.pub);
+      const sig = await makeAuthSig(acct);
       const qs = before ? `&before=${before}` : "";
       const r = await fetch(
         `${CENSUS_URL}/censuses?limit=${CENSUS_PAGE_LIMIT}${qs}`,

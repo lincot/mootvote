@@ -1,5 +1,9 @@
 import { bytesToHex } from "@noble/hashes/utils";
-import { idForAccount, useKeyringCtx, useRevoKeysCtx } from "../keyring.tsx";
+import {
+  idForAccount,
+  useKeyringManagement,
+  useRevoKeysCtx,
+} from "../keyring.tsx";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -53,7 +57,7 @@ export const AccountDrawer: React.FC<{ open: boolean; onClose: () => void }> = (
 
 const KeyringPanel: React.FC<{ open: boolean }> = ({ open }) => {
   const { t } = useTranslation();
-  const KR = useKeyringCtx();
+  const KR = useKeyringManagement();
   const [newName, setNewName] = useState("");
   const [importName, setImportName] = useState("");
   const [importPrv, setImportPrv] = useState("");

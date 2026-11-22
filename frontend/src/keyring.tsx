@@ -3,8 +3,10 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
+import { evaluateVrf } from "../../helpers/vrf.ts";
 import { genBabyJubKeypair, prv2sk, randomScalar } from "../../helpers/key.ts";
 import {
   arraysEqual,
@@ -20,7 +22,7 @@ const KEYRING_DB_KEY = "mootvote:keyring:v1";
 const ACTIVE_IDX_KEY = "mootvote:keyring:active:v1";
 const REVO_DB_KEY = "mootvote:revo:v1";
 
-export type BabyJubKeypair = {
+type BabyJubKeypair = {
   name: string;
   prv: Uint8Array;
   sk: bigint;
@@ -32,13 +34,35 @@ type KeyringApi = ReturnType<typeof useKeyring>;
 
 const KeyringCtx = createContext<KeyringApi | null>(null);
 
-export const useKeyringCtx = () => {
+export const useKeyringManagement = () => {
   const ctx = useContext(KeyringCtx);
   if (!ctx) {
-    throw new Error("useKeyringCtx must be used within <KeyringProvider>");
+    throw new Error("Keyring must be used within <KeyringProvider>");
   }
   return ctx;
 };
+
+function signingAccount({ name, pub, sk, prv }: BabyJubKeypair) {
+  return {
+    name,
+    pub,
+    async evaluateVrf(scope: bigint) {
+      return evaluateVrf(await getBabyjub(), await getPoseidon(), sk, scope);
+    },
+    async signPoseidon(message: bigint) {
+      const eddsa = await getEddsa();
+      const F = eddsa.babyJub.F;
+      const { R8, S } = eddsa.signPoseidon(prv, F.e(message));
+      return { R8: [F.toObject(R8[0]), F.toObject(R8[1])], S };
+    },
+  };
+}
+
+export type SigningAccount = ReturnType<typeof signingAccount>;
+
+export function useKeyringCtx() {
+  return useKeyringManagement().signer;
+}
 
 export const KeyringProvider: React.FC<React.PropsWithChildren> = (
   { children },
@@ -47,7 +71,8 @@ export const KeyringProvider: React.FC<React.PropsWithChildren> = (
   return <KeyringCtx.Provider value={kr}>{children}</KeyringCtx.Provider>;
 };
 
-export const idForAccount = (a: BabyJubKeypair) => `${a.pub[0]}:${a.pub[1]}`;
+export const idForAccount = (a: Pick<BabyJubKeypair, "pub">) =>
+  `${a.pub[0]}:${a.pub[1]}`;
 
 export async function keyToLeafHex([x, y]: [bigint, bigint]): Promise<string> {
   const P = await getPoseidon();
@@ -208,7 +233,9 @@ function useKeyring() {
     a.click();
   }, [accounts]);
 
+  const signers = useMemo(() => accounts.map(signingAccount), [accounts]);
   return {
+    signer: { accounts: signers, active, locked },
     locked,
     pass,
     setPass,
@@ -254,7 +281,7 @@ const RevoKeysContext = createContext<RevoKeysCtx | null>(null);
 export const RevoKeysProvider: React.FC<React.PropsWithChildren> = (
   { children },
 ) => {
-  const KR = useKeyringCtx();
+  const KR = useKeyringManagement();
   const [map, setMap] = useState<RevoKeysMapType>({});
   const [loaded, setLoaded] = useState(false);
 

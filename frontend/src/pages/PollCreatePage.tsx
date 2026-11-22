@@ -312,7 +312,7 @@ export const PollCreatePage: React.FC<{}> = () => {
   const handlePickExisting = async (picked: { id: number; title: string }) => {
     const acct = KR.accounts[KR.active];
     if (!acct) throw new Error("Unlock ZK Accounts");
-    const sig = await makeAuthSig(acct.prv, acct.pub);
+    const sig = await makeAuthSig(acct);
     const r = await fetch(`${CENSUS_URL}/census/${picked.id}/export`, {
       method: "GET",
       headers: { ...sig },

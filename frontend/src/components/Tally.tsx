@@ -17,7 +17,7 @@ import {
   ZERO_HASH,
 } from "@iden3/js-merkletree";
 import type { PollDetail } from "../poll.ts";
-import { useKeyringCtx } from "../keyring.tsx";
+import { useKeyringManagement } from "../keyring.tsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { INDEXER_URL, RPC_URL } from "../env.tsx";
 import { Connection, Transaction } from "@solana/web3.js";
@@ -90,7 +90,7 @@ type VotesPage = {
 export const Tally: React.FC<{ poll: PollDetail }> = ({ poll }) => {
   const { t } = useTranslation();
   const wallet = useWallet();
-  const KR = useKeyringCtx();
+  const KR = useKeyringManagement();
   const connection = new Connection(RPC_URL, { commitment: "confirmed" });
   const [store, setStore] = useState<TallyStore | null>(null);
   const [err, setErr] = useState<string | null>(null);

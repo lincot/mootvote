@@ -54,7 +54,7 @@ export default function CensusDetailPage() {
       setLoading(true);
       setErr("");
       const acct = KR.accounts[KR.active];
-      const sig = acct ? await makeAuthSig(acct.prv, acct.pub) : null;
+      const sig = acct ? await makeAuthSig(acct) : null;
       const r = await fetch(
         `${CENSUS_URL}/census/${cid}/members?limit=${MEMBER_PAGE_LIMIT}${
           after === null ? "" : (after ? `&after=${after}` : "")
@@ -102,7 +102,7 @@ export default function CensusDetailPage() {
       setAddBusy(true);
       const acct = KR.accounts[KR.active];
       if (!acct) throw new Error("Unlock ZK Accounts and select an account");
-      const sig = await makeAuthSig(acct.prv, acct.pub);
+      const sig = await makeAuthSig(acct);
       const name = addName.trim();
       if (!name) throw new Error("Enter a name");
       const r = await fetch(`${CENSUS_URL}/census/${cid}/members`, {
@@ -143,7 +143,7 @@ export default function CensusDetailPage() {
       setRemovingId(memberId);
       const acct = KR.accounts[KR.active];
       if (!acct) throw new Error("Unlock ZK Accounts and select an account");
-      const sig = await makeAuthSig(acct.prv, acct.pub);
+      const sig = await makeAuthSig(acct);
       const r = await fetch(`${CENSUS_URL}/census/${cid}/members/${memberId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json", ...sig },

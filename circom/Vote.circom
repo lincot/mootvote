@@ -2,8 +2,7 @@ pragma circom 2.2.2;
 
 include "./PoseidonHasher.circom";
 include "./MerkleTreeInclusionProof.circom";
-include "./EdDSAPoseidonVerifier.circom";
-include "babyjub.circom";
+include "./BabyJubVrf.circom";
 include "escalarmulfix.circom";
 include "escalarmulany.circom";
 include "bitify.circom";
@@ -31,8 +30,9 @@ template Vote(DEPTH) {
     signal input revotingKeyNew;
     signal input revotingKeyOld;
 
-    signal input sigR[2];
-    signal input sigS;
+    signal input vrfGamma[2];
+    signal input vrfChallenge;
+    signal input vrfResponse;
 
     signal input ephSk;
     signal input nonce;
@@ -47,28 +47,15 @@ template Vote(DEPTH) {
 
     // name = "MootVote"; sum([ord(ch) << (8 * (len(name) - 1 - i)) for i, ch in enumerate(name)])
     var PLATFORM_NAME = 5579801008792368229;
-    signal sigValid <== EdDSAPoseidonVerifier()(
-        publicKeyX <== voterPk[0],
-        publicKeyY <== voterPk[1],
-        signatureScalar <== sigS,
-        signaturePointX <== sigR[0],
-        signaturePointY <== sigR[1],
-        messageHash <== PoseidonHasher(2)([PLATFORM_NAME, pollId])
-    );
-    sigValid === 1;
-
-    signal sigHash <== PoseidonHasher(3)([
-        sigS,
-        sigR[0],
-        sigR[1]
-    ]);
+    signal scope <== PoseidonHasher(2)([PLATFORM_NAME, pollId]);
+    signal pollSeed <== BabyJubVrf()(voterPk, scope, vrfGamma, vrfChallenge, vrfResponse);
 
     signal isRevotingKeyNewZero <== IsZero()(revotingKeyNew);
     isRevotingKeyNewZero === 0;
     signal isRevotingKeyNewEqualOld <== IsEqual()([revotingKeyNew, revotingKeyOld]);
     isRevotingKeyNewEqualOld === 0;
 
-    signal nu <== PoseidonHasher(1)([sigHash]);
+    signal nu <== PoseidonHasher(1)([pollSeed]);
 
     var CHOICE_BITS = 16;
     assert(nChoices < 1 << CHOICE_BITS);
@@ -105,7 +92,7 @@ template Vote(DEPTH) {
     }
     msgHash <== msgHasher.out;
 
-    signal relayerNu <== PoseidonHasher(2)([sigHash, relayerId]);
+    signal relayerNu <== PoseidonHasher(2)([pollSeed, relayerId]);
     signal relayerNuHashRaw <== PoseidonHasher(2)([relayerNu, msgHash]);
     signal relayerIsNotProvided <== IsZero()(relayerId);
     relayerNuHash <== relayerNuHashRaw * (1 - relayerIsNotProvided);

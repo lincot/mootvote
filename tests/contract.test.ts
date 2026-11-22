@@ -56,6 +56,7 @@ import {
 import { poseidonDecrypt, poseidonEncrypt } from "@zk-kit/poseidon-cipher";
 import { groth16 } from "snarkjs";
 import { readFileSync } from "fs";
+import { evaluateVrf } from "../helpers/vrf.ts";
 import { genBabyJubKeypair, randomScalar } from "../helpers/key.ts";
 import { compressProof } from "../helpers/compressSolana.ts";
 import { getMerkleProof, getMerkleRoot } from "../helpers/merkletree.ts";
@@ -107,7 +108,7 @@ let babyjub: BabyJub;
 let F: any;
 
 type Voter = {
-  prv: Uint8Array;
+  sk: bigint;
   pub: [Uint8Array, Uint8Array];
 };
 
@@ -155,11 +156,11 @@ before(async () => {
   F = poseidon.F;
 
   for (let i = 0; i < N_VOTERS; i++) {
-    const { prv, pub } = genBabyJubKeypair(
+    const { sk, pub } = genBabyJubKeypair(
       babyjub,
       eddsa,
     );
-    voters.push({ prv, pub });
+    voters.push({ sk, pub });
     census.push(
       F.toObject(
         poseidon([F.toObject(pub[0]), F.toObject(pub[1])]),
@@ -357,19 +358,10 @@ describe("MootVote", () => {
       const voterIndex = batchLen > 2 && i >= batchLen - 2
         ? voters.length - 1
         : i;
-      const { prv, pub } = voters[voterIndex];
+      const { sk, pub } = voters[voterIndex];
       const nonce = 5n + BigInt(i);
-      const M_N = poseidon([PLATFORM_NAME, pollId]);
-      const sigN = eddsa.signPoseidon(prv, M_N);
-      expect(eddsa.verifyPoseidon(M_N, sigN, pub)).to.be.true;
-
-      const sigR = [
-        F.toObject(sigN.R8[0]),
-        F.toObject(sigN.R8[1]),
-      ];
-      const sigS = sigN.S;
-
-      const sigHash = F.toObject(poseidon([sigS, sigR[0], sigR[1]]));
+      const scope = F.toObject(poseidon([PLATFORM_NAME, pollId]));
+      const { seed, ...vrfProof } = evaluateVrf(babyjub, poseidon, sk, scope);
       const choice = BigInt((i % nChoices) + 1); // 1..nChoices
 
       const ephSk = randomScalar(babyjub.subOrder);
@@ -393,7 +385,7 @@ describe("MootVote", () => {
         ? prvRevoting
         : 42n;
 
-      const nuTallier = F.toObject(poseidon([sigHash]));
+      const nuTallier = F.toObject(poseidon([seed]));
       const plaintext = [
         nuTallier,
         choice,
@@ -417,7 +409,7 @@ describe("MootVote", () => {
         const relayerIdBuf = relayer.publicKey.toBuffer();
         relayerIdBuf[0] &= (1 << 5) - 1;
         relayerId = BigInt("0x" + relayerIdBuf.toString("hex"));
-        relayerNu = F.toObject(poseidon([sigHash, relayerId]));
+        relayerNu = F.toObject(poseidon([seed, relayerId]));
       }
 
       const tallierPk = [F.toObject(PKx), F.toObject(PKy)];
@@ -434,8 +426,7 @@ describe("MootVote", () => {
         revotingKeyOld,
 
         voterPk: [F.toObject(pub[0]), F.toObject(pub[1])],
-        sigR,
-        sigS,
+        ...vrfProof,
 
         path,
         pathPos,
